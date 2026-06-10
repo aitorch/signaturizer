@@ -21,3 +21,13 @@
 {"ts":1781105392836,"task_id":"task-4-pdf-viewer","event":"task.done"}
 {"ts":1781105392846,"task_id":"task-5-pdf-exporter","event":"task.done"}
 {"ts":1781105392855,"task_id":"task-6-ui-shell","event":"task.done"}
+{"ts":1781105425815,"task_id":null,"event":"tasks.started","detail":"3 tasks: task-7-camera-modal, task-8-sig-dropdown, task-9-sig-placement"}
+{"ts":1781106339980,"task_id":"task-7-camera-modal","event":"review.retry","detail":"Review failed: Null deref in crop drag race condition, capture before video loaded, double camera restart, capturedCanvas memory leak on close"}
+{"ts":1781106339994,"task_id":"task-8-sig-dropdown","event":"review.retry","detail":"Review failed: Stale confirmingDeleteId, undefined callback props cause runtime errors, no cancel-delete test, no keyboard/a11y support"}
+{"ts":1781106340010,"task_id":"task-9-sig-placement","event":"review.retry","detail":"Review failed: Wrong PDF Y-coordinate, removeTint doesn't restore original, color tint compounds on stale data, empty coordinate conversion test, no drag/resize/tint tests"}
+{"ts":1781106962726,"task_id":"task-7-camera-modal","event":"review.pass","detail":"All checks passed"}
+{"ts":1781106962743,"task_id":"task-8-sig-dropdown","event":"review.pass","detail":"All checks passed"}
+{"ts":1781106962758,"task_id":"task-9-sig-placement","event":"review.pass","detail":"All checks passed"}
+{"ts":1781106973330,"task_id":"task-7-camera-modal","event":"task.done"}
+{"ts":1781106973339,"task_id":"task-8-sig-dropdown","event":"task.done"}
+{"ts":1781106973348,"task_id":"task-9-sig-placement","event":"task.done"}
