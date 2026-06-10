@@ -58,6 +58,31 @@
     return getAllPlacedSignatures();
   }
 
+  export function getAllPlacedForExport(canvasWidth, canvasHeight, pageDimensions) {
+    // pageDimensions is an object: { [pageNum]: { width, height } }
+    return placedSignatures.map(sig => {
+      const dims = pageDimensions[sig.page];
+      if (!dims) return null;
+      return {
+        ...sig,
+        pdfX: (sig.x / canvasWidth) * dims.width,
+        pdfY: dims.height - ((sig.y + sig.height) / canvasHeight) * dims.height,
+        pdfWidth: (sig.width / canvasWidth) * dims.width,
+        pdfHeight: (sig.height / canvasHeight) * dims.height,
+      };
+    }).filter(Boolean);
+  }
+
+  export function removeLastPlaced() {
+    if (placedSignatures.length === 0) return;
+    const last = placedSignatures[placedSignatures.length - 1];
+    placedSignatures = placedSignatures.slice(0, -1);
+    if (selectedPlacedId === last.id) {
+      selectedPlacedId = null;
+    }
+    notifyChanged();
+  }
+
   // ---- Helper: get mouse position relative to overlay ----
   function getRelativePos(e) {
     if (!overlayEl) return { x: 0, y: 0 };

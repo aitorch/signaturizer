@@ -3,8 +3,11 @@
 
   let {
     pdfData = null,
+    targetPage = undefined,
+    targetZoom = null,
     onPageChange = null,
     onZoomChange = null,
+    onPageInfo = null,
     getCanvasRef = null,
   } = $props();
 
@@ -88,6 +91,18 @@
     (async () => {
       try {
         await renderPage(doc, page, canvas, z);
+
+        // Notify parent of page info (dimensions in PDF points at scale 1.0)
+        if (!cancelled && typeof onPageInfo === 'function') {
+          const pdfPage = await doc.getPage(page);
+          const vp = pdfPage.getViewport({ scale: 1.0 });
+          onPageInfo({
+            pageNum: page,
+            totalPages: totalPages,
+            pageWidth: vp.width,
+            pageHeight: vp.height,
+          });
+        }
       } catch {
         if (!cancelled) error = 'Failed to render page';
       }
@@ -144,6 +159,24 @@
       }
     })();
   }
+
+  // Watch targetPage prop for external navigation requests
+  $effect(() => {
+    if (targetPage !== undefined && targetPage !== currentPage) {
+      goToPage(targetPage);
+    }
+  });
+
+  // Watch targetZoom prop for external zoom requests (from Toolbar)
+  $effect(() => {
+    if (targetZoom !== null && typeof targetZoom === 'number') {
+      // targetZoom comes as percentage (100, 150, etc.), convert to decimal
+      const newZoom = targetZoom / 100;
+      if (Math.abs(newZoom - zoom) > 0.001) {
+        setZoom(newZoom);
+      }
+    }
+  });
 </script>
 
 <div class="flex flex-col h-full w-full">

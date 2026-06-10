@@ -31,3 +31,10 @@
 {"ts":1781106973330,"task_id":"task-7-camera-modal","event":"task.done"}
 {"ts":1781106973339,"task_id":"task-8-sig-dropdown","event":"task.done"}
 {"ts":1781106973348,"task_id":"task-9-sig-placement","event":"task.done"}
+{"ts":1781106995480,"task_id":null,"event":"tasks.started","detail":"2 tasks: task-10-camera-flow, task-11-stamp-flow"}
+{"ts":1781108024169,"task_id":"task-10-camera-flow","event":"review.retry","detail":"Review failed: Toolbar zoom disconnected from PdfViewer, export drops signatures on other pages, no user-facing error feedback, hardcoded dropdown position, exportResult.buffer issue"}
+{"ts":1781108024181,"task_id":"task-11-stamp-flow","event":"review.retry","detail":"Review failed: Toolbar zoom disconnected from PdfViewer, export drops signatures on other pages, no user-facing error feedback, hardcoded dropdown position, exportResult.buffer issue"}
+{"ts":1781108340159,"task_id":"task-10-camera-flow","event":"review.pass","detail":"All checks passed"}
+{"ts":1781108340202,"task_id":"task-11-stamp-flow","event":"review.pass","detail":"All checks passed"}
+{"ts":1781108350786,"task_id":"task-10-camera-flow","event":"task.done"}
+{"ts":1781108350804,"task_id":"task-11-stamp-flow","event":"task.done"}

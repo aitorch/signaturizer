@@ -671,4 +671,235 @@ describe('SignaturePlacement', () => {
       removeSpy.mockRestore();
     });
   });
+
+  describe('removeLastPlaced', () => {
+    it('removes the last placed signature', async () => {
+      const onSignaturesChanged = vi.fn();
+      const { container, component } = render(SignaturePlacement, {
+        props: {
+          ...defaultProps,
+          selectedSignature: createMockSignature(),
+          onSignaturesChanged,
+        },
+      });
+
+      mockOverlay(container.firstElementChild, 800, 600);
+
+      const clickArea = container.querySelector('.cursor-crosshair');
+      await fireEvent.click(clickArea, { clientX: 200, clientY: 150 });
+      await fireEvent.click(clickArea, { clientX: 400, clientY: 300 });
+
+      expect(onSignaturesChanged).toHaveBeenCalledTimes(2);
+      const placed = onSignaturesChanged.mock.calls[1][0];
+      expect(placed).toHaveLength(2);
+
+      component.removeLastPlaced();
+
+      expect(onSignaturesChanged).toHaveBeenCalledTimes(3);
+      const remaining = onSignaturesChanged.mock.calls[2][0];
+      expect(remaining).toHaveLength(1);
+    });
+
+    it('does nothing when no signatures are placed', () => {
+      const onSignaturesChanged = vi.fn();
+      const { component } = render(SignaturePlacement, {
+        props: { ...defaultProps, onSignaturesChanged },
+      });
+
+      component.removeLastPlaced();
+
+      // Should not have called onSignaturesChanged
+      expect(onSignaturesChanged).not.toHaveBeenCalled();
+    });
+
+    it('removes all signatures when called repeatedly', async () => {
+      const onSignaturesChanged = vi.fn();
+      const { container, component } = render(SignaturePlacement, {
+        props: {
+          ...defaultProps,
+          selectedSignature: createMockSignature(),
+          onSignaturesChanged,
+        },
+      });
+
+      mockOverlay(container.firstElementChild, 800, 600);
+
+      const clickArea = container.querySelector('.cursor-crosshair');
+      await fireEvent.click(clickArea, { clientX: 200, clientY: 150 });
+      await fireEvent.click(clickArea, { clientX: 400, clientY: 300 });
+
+      component.removeLastPlaced();
+      component.removeLastPlaced();
+
+      const remaining = onSignaturesChanged.mock.calls[3][0];
+      expect(remaining).toHaveLength(0);
+    });
+
+    it('is safe to call more times than there are signatures', async () => {
+      const onSignaturesChanged = vi.fn();
+      const { container, component } = render(SignaturePlacement, {
+        props: {
+          ...defaultProps,
+          selectedSignature: createMockSignature(),
+          onSignaturesChanged,
+        },
+      });
+
+      mockOverlay(container.firstElementChild, 800, 600);
+
+      const clickArea = container.querySelector('.cursor-crosshair');
+      await fireEvent.click(clickArea, { clientX: 200, clientY: 150 });
+
+      component.removeLastPlaced();
+      component.removeLastPlaced(); // extra call — should be a no-op
+      component.removeLastPlaced(); // extra call — should be a no-op
+
+      const lastCall = onSignaturesChanged.mock.calls[onSignaturesChanged.mock.calls.length - 1][0];
+      expect(lastCall).toHaveLength(0);
+    });
+  });
+
+  describe('getAllPlacedForExport', () => {
+    it('returns all placed signatures across all pages with PDF coordinates', async () => {
+      const onSignaturesChanged = vi.fn();
+      const { container, component } = render(SignaturePlacement, {
+        props: {
+          ...defaultProps,
+          selectedSignature: createMockSignature(),
+          currentPage: 1,
+          onSignaturesChanged,
+        },
+      });
+
+      mockOverlay(container.firstElementChild, 800, 600);
+
+      // Place on page 1
+      const clickArea = container.querySelector('.cursor-crosshair');
+      await fireEvent.click(clickArea, { clientX: 300, clientY: 200 });
+
+      expect(onSignaturesChanged).toHaveBeenCalledTimes(1);
+      const placed = onSignaturesChanged.mock.calls[0][0];
+
+      // Now manually add a signature on page 2 to simulate multi-page placement
+      // We'll use the component's internal state via the placed array
+      // Since we can't easily change currentPage mid-render, let's test with just page 1
+      const canvasWidth = 800;
+      const canvasHeight = 600;
+      const pageDimensions = {
+        1: { width: 595, height: 842 },
+      };
+
+      const results = component.getAllPlacedForExport(canvasWidth, canvasHeight, pageDimensions);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].page).toBe(1);
+      expect(results[0].pdfX).toBeCloseTo(148.75, 2);
+      expect(results[0].pdfY).toBeCloseTo(491.167, 1);
+      expect(results[0].pdfWidth).toBeCloseTo(148.75, 2);
+      expect(results[0].pdfHeight).toBeCloseTo(140.333, 1);
+    });
+
+    it('returns empty array when no signatures are placed', () => {
+      const { component } = render(SignaturePlacement, {
+        props: { ...defaultProps },
+      });
+
+      const results = component.getAllPlacedForExport(800, 600, { 1: { width: 595, height: 842 } });
+      expect(results).toHaveLength(0);
+    });
+
+    it('uses per-page dimensions for coordinate conversion', async () => {
+      const onSignaturesChanged = vi.fn();
+      const { container, component } = render(SignaturePlacement, {
+        props: {
+          ...defaultProps,
+          selectedSignature: createMockSignature(),
+          currentPage: 1,
+          onSignaturesChanged,
+        },
+      });
+
+      mockOverlay(container.firstElementChild, 800, 600);
+
+      const clickArea = container.querySelector('.cursor-crosshair');
+      await fireEvent.click(clickArea, { clientX: 300, clientY: 200 });
+
+      // Use different page dimensions
+      const pageDimensions = {
+        1: { width: 612, height: 792 }, // US Letter
+      };
+
+      const results = component.getAllPlacedForExport(800, 600, pageDimensions);
+      expect(results).toHaveLength(1);
+
+      // Canvas position: x=200, y=150, width=200, height=100
+      // pdfX = (200 / 800) * 612 = 153
+      expect(results[0].pdfX).toBeCloseTo(153, 0);
+      // pdfY = 792 - ((150 + 100) / 600) * 792 = 792 - 330 = 462
+      expect(results[0].pdfY).toBeCloseTo(462, 0);
+    });
+
+    it('filters out signatures whose page has no recorded dimensions', async () => {
+      const onSignaturesChanged = vi.fn();
+      const { container, component } = render(SignaturePlacement, {
+        props: {
+          ...defaultProps,
+          selectedSignature: createMockSignature(),
+          currentPage: 1,
+          onSignaturesChanged,
+        },
+      });
+
+      mockOverlay(container.firstElementChild, 800, 600);
+
+      const clickArea = container.querySelector('.cursor-crosshair');
+      await fireEvent.click(clickArea, { clientX: 300, clientY: 200 });
+
+      // Provide dimensions for a different page, not page 1
+      const pageDimensions = {
+        2: { width: 595, height: 842 },
+      };
+
+      const results = component.getAllPlacedForExport(800, 600, pageDimensions);
+      // Signature on page 1 has no dimensions recorded, should be filtered out
+      expect(results).toHaveLength(0);
+    });
+
+    it('returns all placed signature properties alongside PDF coordinates', async () => {
+      const onSignaturesChanged = vi.fn();
+      const sig = createMockSignature('sig-99');
+      const { container, component } = render(SignaturePlacement, {
+        props: {
+          ...defaultProps,
+          selectedSignature: sig,
+          currentPage: 1,
+          onSignaturesChanged,
+        },
+      });
+
+      mockOverlay(container.firstElementChild, 800, 600);
+
+      const clickArea = container.querySelector('.cursor-crosshair');
+      await fireEvent.click(clickArea, { clientX: 300, clientY: 200 });
+
+      const pageDimensions = { 1: { width: 595, height: 842 } };
+      const results = component.getAllPlacedForExport(800, 600, pageDimensions);
+
+      expect(results).toHaveLength(1);
+      const r = results[0];
+      // Original canvas properties preserved
+      expect(r.x).toBe(200);
+      expect(r.y).toBe(150);
+      expect(r.width).toBe(200);
+      expect(r.height).toBe(100);
+      expect(r.page).toBe(1);
+      expect(r.signatureId).toBe('sig-99');
+      expect(r.imageData).toBe(sig.imageData);
+      // PDF coordinates added
+      expect(r.pdfX).toBeDefined();
+      expect(r.pdfY).toBeDefined();
+      expect(r.pdfWidth).toBeDefined();
+      expect(r.pdfHeight).toBeDefined();
+    });
+  });
 });

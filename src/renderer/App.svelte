@@ -1,18 +1,59 @@
 <script>
+  import { onMount } from 'svelte';
+  import { createSignatureStore, createFsAdapter } from '../lib/signature-store.js';
+  import { cropImage, removeBackground, imageDataToBase64 } from '../lib/image-processor.js';
+  import SignatureDropdown from './components/SignatureDropdown.svelte';
+  import CameraModal from './components/CameraModal.svelte';
   import Toolbar from './components/Toolbar.svelte';
+  import PdfViewer from './components/PdfViewer.svelte';
+  import SignaturePlacement from './components/SignaturePlacement.svelte';
+  import { exportSignedPdf } from '../lib/pdf-exporter.js';
 
   // App state
   let pdfData = $state(null);
   let pdfFileName = $state(null);
   let signatures = $state([]);
-  // TODO: showSignDropdown will be used when sign dropdown UI is implemented
+  let selectedSignature = $state(null);
   let showSignDropdown = $state(false);
+  let showCameraModal = $state(false);
+  let store = $state(null);
   let currentPage = $state(1);
   let totalPages = $state(1);
   let zoom = $state(100);
+  let notification = $state(null); // { message, type: 'error' | 'success' }
+
+  // PDF viewer refs
+  let canvasRef = $state(null);
+  let placementRef = $state(null);
+
+  // PDF page dimensions in points — stored per page as user navigates
+  let pageDimensions = $state({}); // { pageNum: { width, height } }
 
   // Safe access to electronAPI (may not exist in dev/browser)
   const api = typeof window !== 'undefined' ? window.electronAPI : null;
+
+  // --- Notification helpers ---
+  function showError(message) {
+    notification = { message, type: 'error' };
+    setTimeout(() => notification = null, 4000);
+  }
+
+  function showSuccess(message) {
+    notification = { message, type: 'success' };
+    setTimeout(() => notification = null, 3000);
+  }
+
+  // Load signatures on mount
+  onMount(async () => {
+    if (!api) return;
+    try {
+      const userDataPath = await api.getUserDataPath();
+      store = createSignatureStore(createFsAdapter(userDataPath));
+      signatures = store.getAll();
+    } catch (err) {
+      console.error('Failed to load signatures:', err);
+    }
+  });
 
   // Handlers
   async function handleOpenPdf() {
@@ -23,25 +64,78 @@
       const data = await api.readFile(filePath);
       if (data && data.error) {
         console.error('Failed to read file:', data.error);
+        showError('Failed to open PDF');
         return;
       }
       pdfData = data;
       pdfFileName = filePath.split('/').pop();
     } catch (err) {
       console.error('Failed to open PDF:', err);
+      showError('Failed to open PDF');
     }
   }
 
-  // TODO: wire export logic to pdf-exporter module
   async function handleExport() {
     try {
-      if (!api) return;
+      if (!api || !pdfData) return;
       const savePath = await api.saveFileDialog(pdfFileName || 'signed.pdf');
       if (!savePath) return;
-      // TODO: export logic will be wired to pdf-exporter later
+
+      // Get placed signatures from placement component
+      if (!placementRef || !canvasRef) return;
+
+      const canvasWidth = canvasRef.width;
+      const canvasHeight = canvasRef.height;
+
+      // Use getAllPlacedForExport to get signatures across ALL pages
+      const placedForExport = placementRef.getAllPlacedForExport(
+        canvasWidth,
+        canvasHeight,
+        pageDimensions
+      );
+
+      if (placedForExport.length === 0) {
+        console.warn('No signatures placed');
+        showError('No signatures to export');
+        return;
+      }
+
+      // Convert image data: each signature's imageData is a base64 data URL
+      // pdf-exporter expects Uint8Array of PNG bytes
+      const signaturesForExport = placedForExport.map(sig => ({
+        page: sig.page,
+        x: sig.pdfX,
+        y: sig.pdfY,
+        width: sig.pdfWidth,
+        height: sig.pdfHeight,
+        imageData: base64ToUint8Array(sig.imageData),
+      }));
+
+      // Export
+      const originalBytes = new Uint8Array(pdfData);
+      const exportResult = await exportSignedPdf(originalBytes, signaturesForExport);
+
+      // Write to file — slice the buffer to get only the relevant bytes
+      await api.writeFile(savePath, exportResult.buffer.slice(
+        exportResult.byteOffset,
+        exportResult.byteOffset + exportResult.byteLength
+      ));
+
+      showSuccess('PDF exported successfully');
     } catch (err) {
       console.error('Failed to export:', err);
+      showError('Failed to export PDF');
     }
+  }
+
+  function base64ToUint8Array(dataUrl) {
+    const base64 = dataUrl.split(',')[1];
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
   }
 
   function handleSign() {
@@ -63,37 +157,140 @@
   function handleZoomOut() {
     zoom = Math.max(zoom - 10, 25);
   }
+
+  function handlePageChange(page) {
+    currentPage = page;
+  }
+
+  function handleZoomChange(z) {
+    zoom = Math.round(z * 100);
+  }
+
+  function handlePageInfo(info) {
+    currentPage = info.pageNum;
+    totalPages = info.totalPages;
+    pageDimensions[info.pageNum] = { width: info.pageWidth, height: info.pageHeight };
+  }
+
+  // --- Signature dropdown handlers ---
+
+  function handleCreateNew() {
+    showSignDropdown = false;
+    showCameraModal = true;
+  }
+
+  function handleSelectSignature(signature) {
+    selectedSignature = signature;
+    showSignDropdown = false;
+  }
+
+  function handleDeleteSignature(id) {
+    if (store) {
+      store.delete(id);
+      signatures = store.getAll();
+    }
+  }
+
+  // --- Camera capture → process → save ---
+
+  async function handleCameraCapture({ capturedCanvas, cropRect, threshold }) {
+    try {
+      // Crop the captured image
+      const croppedCanvas = cropImage(capturedCanvas, cropRect);
+      const ctx = croppedCanvas.getContext('2d');
+      const imageData = ctx.getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
+
+      // Remove background
+      const processedImageData = removeBackground(imageData, threshold);
+
+      // Convert to base64 PNG
+      const base64Png = imageDataToBase64(processedImageData);
+
+      // Save to store
+      if (store) {
+        const name = 'Signature ' + (signatures.length + 1);
+        store.add(name, base64Png);
+        signatures = store.getAll();
+      }
+
+      showCameraModal = false;
+    } catch (err) {
+      console.error('Failed to process signature:', err);
+      showError('Failed to process signature');
+    }
+  }
+
+  // Undo support (Ctrl+Z)
+  function handleUndo() {
+    if (placementRef) {
+      placementRef.removeLastPlaced?.();
+    }
+  }
+
+  onMount(() => {
+    function handleKeyDown(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        handleUndo();
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  });
 </script>
 
 <div class="h-screen flex flex-col bg-gray-50">
-  <!-- Toolbar -->
-  <Toolbar
-    onOpenPdf={handleOpenPdf}
-    onExport={handleExport}
-    onSign={handleSign}
-    hasPdf={pdfData !== null}
-    hasSignatures={signatures.length > 0}
-    currentPage={currentPage}
-    totalPages={totalPages}
-    zoom={zoom}
-    onPrevPage={handlePrevPage}
-    onNextPage={handleNextPage}
-    onZoomIn={handleZoomIn}
-    onZoomOut={handleZoomOut}
-  />
+  <!-- Toolbar area with dropdown positioning context -->
+  <div class="relative">
+    <Toolbar
+      onOpenPdf={handleOpenPdf}
+      onExport={handleExport}
+      onSign={handleSign}
+      hasPdf={pdfData !== null}
+      hasSignatures={signatures.length > 0}
+      currentPage={currentPage}
+      totalPages={totalPages}
+      zoom={zoom}
+      onPrevPage={handlePrevPage}
+      onNextPage={handleNextPage}
+      onZoomIn={handleZoomIn}
+      onZoomOut={handleZoomOut}
+    />
+    {#if showSignDropdown}
+      <div class="absolute top-12 left-24 z-50">
+        <SignatureDropdown
+          signatures={signatures}
+          isOpen={showSignDropdown}
+          onSelect={handleSelectSignature}
+          onDelete={handleDeleteSignature}
+          onCreateNew={handleCreateNew}
+          onClose={() => showSignDropdown = false}
+        />
+      </div>
+    {/if}
+  </div>
 
   <!-- Main Content Area -->
   <main class="flex-1 overflow-hidden relative">
     {#if pdfData}
-      <!-- PDF Viewer placeholder — will be replaced by PdfViewer component -->
-      <div class="flex items-center justify-center h-full text-gray-400">
-        <div class="text-center">
-          <svg class="mx-auto mb-3 w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          <p class="text-sm">PDF loaded: {pdfFileName}</p>
-          <p class="text-xs text-gray-300 mt-1">PDF Viewer will render here</p>
-        </div>
+      <div class="relative w-full h-full">
+        <PdfViewer
+          {pdfData}
+          targetPage={currentPage}
+          targetZoom={zoom}
+          onPageChange={handlePageChange}
+          onZoomChange={handleZoomChange}
+          onPageInfo={handlePageInfo}
+          getCanvasRef={(ref) => canvasRef = ref}
+        />
+        {#if selectedSignature}
+          <SignaturePlacement
+            {selectedSignature}
+            currentPage={currentPage}
+            {canvasRef}
+            bind:this={placementRef}
+          />
+        {/if}
       </div>
     {:else}
       <!-- Empty state -->
@@ -124,4 +321,19 @@
       </div>
     {/if}
   </main>
+
+  <!-- Camera Modal -->
+  <CameraModal
+    isOpen={showCameraModal}
+    onCapture={handleCameraCapture}
+    onCancel={() => showCameraModal = false}
+  />
+
+  <!-- Notification toast -->
+  {#if notification}
+    <div class="fixed bottom-4 right-4 z-[100] px-4 py-3 rounded-lg shadow-lg text-white text-sm
+      {notification.type === 'error' ? 'bg-red-500' : 'bg-green-500'}">
+      {notification.message}
+    </div>
+  {/if}
 </div>
