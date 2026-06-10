@@ -45,11 +45,13 @@
       "deps": [
         "task-1-setup"
       ],
-      "status": "pending",
+      "status": "done",
       "review": {
-        "attempts": 0,
-        "review_passed": false
-      }
+        "attempts": 2,
+        "review_passed": true
+      },
+      "started_at": 1781103582645,
+      "completed_at": 1781105392802
     },
     {
       "id": "task-3-signature-store",
@@ -62,11 +64,13 @@
       "deps": [
         "task-1-setup"
       ],
-      "status": "pending",
+      "status": "done",
       "review": {
-        "attempts": 0,
-        "review_passed": false
-      }
+        "attempts": 2,
+        "review_passed": true
+      },
+      "started_at": 1781103582645,
+      "completed_at": 1781105392817
     },
     {
       "id": "task-4-pdf-viewer",
@@ -80,11 +84,13 @@
       "deps": [
         "task-1-setup"
       ],
-      "status": "pending",
+      "status": "done",
       "review": {
-        "attempts": 0,
-        "review_passed": false
-      }
+        "attempts": 2,
+        "review_passed": true
+      },
+      "started_at": 1781103582645,
+      "completed_at": 1781105392836
     },
     {
       "id": "task-5-pdf-exporter",
@@ -97,11 +103,13 @@
       "deps": [
         "task-1-setup"
       ],
-      "status": "pending",
+      "status": "done",
       "review": {
-        "attempts": 0,
-        "review_passed": false
-      }
+        "attempts": 2,
+        "review_passed": true
+      },
+      "started_at": 1781103582645,
+      "completed_at": 1781105392846
     },
     {
       "id": "task-6-ui-shell",
@@ -116,11 +124,13 @@
       "deps": [
         "task-1-setup"
       ],
-      "status": "pending",
+      "status": "done",
       "review": {
-        "attempts": 0,
-        "review_passed": false
-      }
+        "attempts": 2,
+        "review_passed": true
+      },
+      "started_at": 1781103582645,
+      "completed_at": 1781105392855
     },
     {
       "id": "task-7-camera-modal",
@@ -237,43 +247,58 @@
   "active_tasks": [],
   "log": [
     {
-      "ts": 1781100356092,
-      "task_id": null,
-      "event": "triaged",
-      "detail": "simple/low"
-    },
-    {
-      "ts": 1781102156456,
-      "task_id": null,
-      "event": "dag.created",
-      "detail": "12 tasks"
-    },
-    {
-      "ts": 1781102162928,
-      "task_id": null,
-      "event": "tasks.started",
-      "detail": "1 tasks: task-1-setup"
-    },
-    {
-      "ts": 1781102496734,
-      "task_id": "task-1-setup",
+      "ts": 1781105376770,
+      "task_id": "task-2-image-processor",
       "event": "review.pass",
       "detail": "All checks passed"
     },
     {
-      "ts": 1781102503089,
-      "task_id": "task-1-setup",
+      "ts": 1781105376785,
+      "task_id": "task-3-signature-store",
+      "event": "review.pass",
+      "detail": "All checks passed"
+    },
+    {
+      "ts": 1781105376795,
+      "task_id": "task-4-pdf-viewer",
+      "event": "review.pass",
+      "detail": "All checks passed"
+    },
+    {
+      "ts": 1781105376806,
+      "task_id": "task-5-pdf-exporter",
+      "event": "review.pass",
+      "detail": "All checks passed"
+    },
+    {
+      "ts": 1781105376816,
+      "task_id": "task-6-ui-shell",
+      "event": "review.pass",
+      "detail": "All checks passed"
+    },
+    {
+      "ts": 1781105392802,
+      "task_id": "task-2-image-processor",
       "event": "task.done"
     },
     {
-      "ts": 1781103532473,
-      "task_id": "task-1-setup",
-      "event": "review.pass",
-      "detail": "All checks passed"
+      "ts": 1781105392817,
+      "task_id": "task-3-signature-store",
+      "event": "task.done"
     },
     {
-      "ts": 1781103540967,
-      "task_id": "task-1-setup",
+      "ts": 1781105392836,
+      "task_id": "task-4-pdf-viewer",
+      "event": "task.done"
+    },
+    {
+      "ts": 1781105392846,
+      "task_id": "task-5-pdf-exporter",
+      "event": "task.done"
+    },
+    {
+      "ts": 1781105392855,
+      "task_id": "task-6-ui-shell",
       "event": "task.done"
     }
   ],

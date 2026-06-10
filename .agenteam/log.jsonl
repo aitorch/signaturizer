@@ -5,3 +5,19 @@
 {"ts":1781102503089,"task_id":"task-1-setup","event":"task.done"}
 {"ts":1781103532473,"task_id":"task-1-setup","event":"review.pass","detail":"All checks passed"}
 {"ts":1781103540967,"task_id":"task-1-setup","event":"task.done"}
+{"ts":1781103582645,"task_id":null,"event":"tasks.started","detail":"5 tasks: task-2-image-processor, task-3-signature-store, task-4-pdf-viewer, task-5-pdf-exporter, task-6-ui-shell"}
+{"ts":1781104426555,"task_id":"task-2-image-processor","event":"review.retry","detail":"Review failed: 5/8 exported functions untested. Luminance not preserved in applyColorTint for non-neutral colors. Threshold boundary condition untested. Missing input validation for threshold and color parameters."}
+{"ts":1781104426566,"task_id":"task-3-signature-store","event":"review.retry","detail":"Review failed: getById/getAll return mutable references (no defensive copy). Zero test coverage for createFsAdapter. Test doesn't verify copy semantics properly."}
+{"ts":1781104426576,"task_id":"task-4-pdf-viewer","event":"review.retry","detail":"Review failed: CRITICAL: Worker path won't resolve at runtime. Memory leak: PDFDocumentProxy never destroyed. Race condition in page rendering. Unhandled promise rejection in fitWidth/fitPage."}
+{"ts":1781104426590,"task_id":"task-5-pdf-exporter","event":"review.retry","detail":"Review failed: CRITICAL: Coordinate mismatch between calculatePdfCoords and drawImage. Tests never verify image embedding. Only RGB PNGs tested, not RGBA. No validation of drawing parameters."}
+{"ts":1781104426597,"task_id":"task-6-ui-shell","event":"review.retry","detail":"Review failed: Unhandled promise rejections in IPC handlers. Fragile DOM-order test assertions. Missing keyboard focus indicators. No click tests for page nav/zoom."}
+{"ts":1781105376770,"task_id":"task-2-image-processor","event":"review.pass","detail":"All checks passed"}
+{"ts":1781105376785,"task_id":"task-3-signature-store","event":"review.pass","detail":"All checks passed"}
+{"ts":1781105376795,"task_id":"task-4-pdf-viewer","event":"review.pass","detail":"All checks passed"}
+{"ts":1781105376806,"task_id":"task-5-pdf-exporter","event":"review.pass","detail":"All checks passed"}
+{"ts":1781105376816,"task_id":"task-6-ui-shell","event":"review.pass","detail":"All checks passed"}
+{"ts":1781105392802,"task_id":"task-2-image-processor","event":"task.done"}
+{"ts":1781105392817,"task_id":"task-3-signature-store","event":"task.done"}
+{"ts":1781105392836,"task_id":"task-4-pdf-viewer","event":"task.done"}
+{"ts":1781105392846,"task_id":"task-5-pdf-exporter","event":"task.done"}
+{"ts":1781105392855,"task_id":"task-6-ui-shell","event":"task.done"}
