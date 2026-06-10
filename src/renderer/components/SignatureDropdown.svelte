@@ -1,4 +1,6 @@
 <script>
+  import { fade, scale } from 'svelte/transition';
+
   let {
     signatures = [],
     isOpen = false,
@@ -71,7 +73,7 @@
 </script>
 
 {#if isOpen}
-  <div bind:this={container} class="absolute z-50 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[250px] max-w-[300px] mt-1">
+  <div bind:this={container} transition:scale={{ start: 0.95, duration: 120 }} class="absolute z-50 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[250px] max-w-[300px] mt-1">
     <button
       onclick={handleCreateNew}
       class="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-t-lg transition-colors"

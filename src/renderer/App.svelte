@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import { fade, fly, scale } from 'svelte/transition';
   import { createSignatureStore, createFsAdapter } from '../lib/signature-store.js';
   import { cropImage, removeBackground, imageDataToBase64 } from '../lib/image-processor.js';
   import SignatureDropdown from './components/SignatureDropdown.svelte';
@@ -229,9 +230,24 @@
 
   onMount(() => {
     function handleKeyDown(e) {
+      // Don't intercept when typing in inputs
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         handleUndo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+        e.preventDefault();
+        handleOpenPdf();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleExport();
+      } else if (e.key === 'Escape') {
+        if (showCameraModal) {
+          showCameraModal = false;
+        } else if (showSignDropdown) {
+          showSignDropdown = false;
+        }
       }
     }
     document.addEventListener('keydown', handleKeyDown);
@@ -331,8 +347,11 @@
 
   <!-- Notification toast -->
   {#if notification}
-    <div class="fixed bottom-4 right-4 z-[100] px-4 py-3 rounded-lg shadow-lg text-white text-sm
-      {notification.type === 'error' ? 'bg-red-500' : 'bg-green-500'}">
+    <div
+      in:fly={{ y: 30, duration: 250 }}
+      out:fade={{ duration: 200 }}
+      class="fixed bottom-4 right-4 z-[100] px-4 py-3 rounded-lg shadow-lg text-white text-sm
+        {notification.type === 'error' ? 'bg-red-500' : 'bg-green-500'}">
       {notification.message}
     </div>
   {/if}

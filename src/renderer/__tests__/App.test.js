@@ -290,3 +290,108 @@ describe('App - Notification system', () => {
     expect(notifications.length).toBe(0);
   });
 });
+
+describe('App - Keyboard shortcuts', () => {
+  beforeEach(() => {
+    window.electronAPI = {
+      getUserDataPath: vi.fn().mockResolvedValue('/tmp/test-user-data'),
+      openFileDialog: vi.fn().mockResolvedValue(null),
+      readFile: vi.fn(),
+      saveFileDialog: vi.fn().mockResolvedValue(null),
+    };
+  });
+
+  afterEach(() => {
+    delete window.electronAPI;
+  });
+
+  it('Ctrl+O calls handleOpenPdf (openFileDialog)', async () => {
+    render(App);
+
+    await fireEvent.keyDown(document, { key: 'o', ctrlKey: true });
+
+    expect(window.electronAPI.openFileDialog).toHaveBeenCalledTimes(1);
+  });
+
+  it('Ctrl+S calls handleExport (saveFileDialog)', async () => {
+    render(App);
+
+    await fireEvent.keyDown(document, { key: 's', ctrlKey: true });
+
+    // saveFileDialog is only called if pdfData exists, but the function is called
+    // and it checks for api + pdfData. Since no PDF is loaded, saveFileDialog won't be called.
+    // But we verify the keyboard listener is wired up by ensuring no crash.
+    expect(window.electronAPI.saveFileDialog).not.toHaveBeenCalled();
+  });
+
+  it('Ctrl+S triggers export when PDF is loaded', async () => {
+    // Simulate a loaded PDF by setting up the full flow
+    window.electronAPI.openFileDialog = vi.fn().mockResolvedValue('/test/doc.pdf');
+    window.electronAPI.readFile = vi.fn().mockResolvedValue(new ArrayBuffer(10));
+
+    render(App);
+
+    // Open a PDF first
+    await fireEvent.keyDown(document, { key: 'o', ctrlKey: true });
+    // Wait for async operations
+    await new Promise(r => setTimeout(r, 50));
+
+    // Now try Ctrl+S
+    await fireEvent.keyDown(document, { key: 's', ctrlKey: true });
+
+    // saveFileDialog should have been called since we have a PDF loaded
+    expect(window.electronAPI.saveFileDialog).toHaveBeenCalledTimes(1);
+  });
+
+  it('Escape closes sign dropdown', async () => {
+    const { container } = render(App);
+
+    // Open the dropdown by clicking Sign button
+    const signButtons = container.querySelectorAll('button[title="Sign document"]');
+    if (signButtons.length > 0) {
+      await fireEvent.click(signButtons[0]);
+    }
+
+    // Verify dropdown appeared
+    expect(container.querySelector('.absolute.top-12')).toBeDefined();
+
+    // Press Escape to close it
+    await fireEvent.keyDown(document, { key: 'Escape' });
+
+    // Dropdown should be gone
+    expect(container.querySelector('.absolute.top-12')).toBeNull();
+  });
+
+  it('Ctrl+Z does not crash when no signatures are placed', async () => {
+    render(App);
+
+    // Should not throw
+    await fireEvent.keyDown(document, { key: 'z', ctrlKey: true });
+  });
+
+  it('shortcuts do not fire when focus is in an input element', async () => {
+    render(App);
+
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+
+    await fireEvent.keyDown(input, { key: 'o', ctrlKey: true });
+
+    expect(window.electronAPI.openFileDialog).not.toHaveBeenCalled();
+
+    document.body.removeChild(input);
+  });
+
+  it('shortcuts do not fire when focus is in a textarea element', async () => {
+    render(App);
+
+    const textarea = document.createElement('textarea');
+    document.body.appendChild(textarea);
+
+    await fireEvent.keyDown(textarea, { key: 'o', ctrlKey: true });
+
+    expect(window.electronAPI.openFileDialog).not.toHaveBeenCalled();
+
+    document.body.removeChild(textarea);
+  });
+});

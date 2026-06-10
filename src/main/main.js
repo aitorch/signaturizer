@@ -14,6 +14,7 @@ function createWindow() {
     height: 800,
     center: true,
     minWidth: 800,
+    title: 'Signaturizer',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
