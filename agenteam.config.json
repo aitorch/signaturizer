@@ -1,0 +1,36 @@
+{
+  "models": {
+    "cheap": "",
+    "smart": ""
+  },
+  "limits": {
+    "max_review_retries": 3,
+    "escalation": "smart"
+  },
+  "triage": {
+    "simple_max_files": 2,
+    "risk_keywords": [
+      "refactor",
+      "migrate",
+      "security",
+      "auth",
+      "database",
+      "schema",
+      "deploy",
+      "infrastructure"
+    ]
+  },
+  "review": {
+    "lint_command": null,
+    "always_adversary": true
+  },
+  "adversary_model": "smart",
+  "memory": {
+    "enabled": true,
+    "embedding_model": "Xenova/all-MiniLM-L6-v2",
+    "max_auto_results": 5,
+    "max_auto_tokens": 100,
+    "similarity_threshold": 0.7,
+    "auto_inject_on_triage": true
+  }
+}

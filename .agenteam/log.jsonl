@@ -1,0 +1,7 @@
+{"ts":1781100356092,"task_id":null,"event":"triaged","detail":"simple/low"}
+{"ts":1781102156456,"task_id":null,"event":"dag.created","detail":"12 tasks"}
+{"ts":1781102162928,"task_id":null,"event":"tasks.started","detail":"1 tasks: task-1-setup"}
+{"ts":1781102496734,"task_id":"task-1-setup","event":"review.pass","detail":"All checks passed"}
+{"ts":1781102503089,"task_id":"task-1-setup","event":"task.done"}
+{"ts":1781103532473,"task_id":"task-1-setup","event":"review.pass","detail":"All checks passed"}
+{"ts":1781103540967,"task_id":"task-1-setup","event":"task.done"}
