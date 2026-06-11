@@ -6,4 +6,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
   writeFile: (filePath, data) => ipcRenderer.invoke('write-file', filePath, data),
   getUserDataPath: () => ipcRenderer.invoke('get-user-data-path'),
+  readSignatures: () => ipcRenderer.invoke('read-signatures'),
+  writeSignatures: (data) => ipcRenderer.invoke('write-signatures', data),
 });

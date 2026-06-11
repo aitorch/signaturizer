@@ -38,3 +38,7 @@
 {"ts":1781108340202,"task_id":"task-11-stamp-flow","event":"review.pass","detail":"All checks passed"}
 {"ts":1781108350786,"task_id":"task-10-camera-flow","event":"task.done"}
 {"ts":1781108350804,"task_id":"task-11-stamp-flow","event":"task.done"}
+{"ts":1781108374738,"task_id":null,"event":"tasks.started","detail":"1 tasks: task-12-e2e-polish"}
+{"ts":1781108667490,"task_id":"task-12-e2e-polish","event":"review.pass","detail":"All checks passed"}
+{"ts":1781108673635,"task_id":"task-12-e2e-polish","event":"task.done"}
+{"ts":1781108731409,"task_id":null,"event":"state.update","detail":"phase"}

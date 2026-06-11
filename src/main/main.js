@@ -8,6 +8,10 @@ const __dirname = path.dirname(__filename);
 
 const isDev = !app.isPackaged;
 
+app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations');
+app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+app.commandLine.appendSwitch('disable-gpu-sandbox');
+
 function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1200,
@@ -79,6 +83,31 @@ ipcMain.handle('write-file', (_event, filePath, data) => {
 
 ipcMain.handle('get-user-data-path', () => {
   return app.getPath('userData');
+});
+
+ipcMain.handle('read-signatures', () => {
+  try {
+    const filePath = path.join(app.getPath('userData'), 'signatures.json');
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, '[]', 'utf-8');
+      return [];
+    }
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+});
+
+ipcMain.handle('write-signatures', (_event, data) => {
+  try {
+    const filePath = path.join(app.getPath('userData'), 'signatures.json');
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    return true;
+  } catch (err) {
+    return { error: err.message };
+  }
 });
 
 // ── App Lifecycle ────────────────────────────────────────────────────────────

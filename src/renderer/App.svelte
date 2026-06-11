@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { fade, fly, scale } from 'svelte/transition';
-  import { createSignatureStore, createFsAdapter } from '../lib/signature-store.js';
+  import { createSignatureStore, createMemoryAdapter } from '../lib/signature-store.js';
   import { cropImage, removeBackground, imageDataToBase64 } from '../lib/image-processor.js';
   import SignatureDropdown from './components/SignatureDropdown.svelte';
   import CameraModal from './components/CameraModal.svelte';
@@ -48,8 +48,11 @@
   onMount(async () => {
     if (!api) return;
     try {
-      const userDataPath = await api.getUserDataPath();
-      store = createSignatureStore(createFsAdapter(userDataPath));
+      const ipcAdapter = {
+        read: () => api.readSignatures(),
+        write: (data) => api.writeSignatures(data),
+      };
+      store = createSignatureStore(ipcAdapter);
       signatures = store.getAll();
     } catch (err) {
       console.error('Failed to load signatures:', err);

@@ -1,5 +1,11 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  // Let @electron-forge/plugin-vite handle outDir, lib, and formats
+  build: {
+    lib: {
+      entry: 'src/main/main.js',
+      fileName: () => '[name].js',
+      formats: ['es'],
+    },
+  },
 });
