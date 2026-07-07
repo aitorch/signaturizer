@@ -71,9 +71,13 @@
     // Each signature stores the canvas dimensions at placement time.
     // We use those stored dimensions (not the current canvas) for coordinate
     // conversion, so zoom changes after placement don't affect export accuracy.
-    return placedSignatures.map(sig => {
+    const skipped = [];
+    const results = placedSignatures.map(sig => {
       const dims = pageDimensions[sig.page];
-      if (!dims) return null;
+      if (!dims) {
+        skipped.push(sig);
+        return null;
+      }
       // Use the canvas dimensions recorded at placement time
       const cw = sig.canvasWidth || canvasWidth;
       const ch = sig.canvasHeight || canvasHeight;
@@ -85,6 +89,12 @@
         pdfHeight: (sig.height / ch) * dims.height,
       };
     }).filter(Boolean);
+
+    if (skipped.length > 0) {
+      console.warn(`getAllPlacedForExport: skipped ${skipped.length} signature(s) with missing page dimensions`);
+    }
+
+    return results;
   }
 
   export function removeLastPlaced() {

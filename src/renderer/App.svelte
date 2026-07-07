@@ -95,6 +95,19 @@
         pageDimensions
       );
 
+      // Check for signatures that were silently skipped due to missing page dimensions
+      const allPlaced = placementRef.getAllPlaced();
+      if (placedForExport.length < allPlaced.length) {
+        const skippedPages = allPlaced
+          .filter(s => !pageDimensions[s.page])
+          .map(s => s.page)
+          .filter((v, i, a) => a.indexOf(v) === i);
+        const msg = `Could not export ${allPlaced.length - placedForExport.length} signature(s) on page(s) ${skippedPages.join(', ')} — missing page dimensions. Navigate to those pages first.`;
+        console.error(msg);
+        showError(msg);
+        return;
+      }
+
       if (placedForExport.length === 0) {
         console.warn('No signatures placed');
         showError('No signatures to export');
