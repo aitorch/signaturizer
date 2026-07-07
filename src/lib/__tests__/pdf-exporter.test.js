@@ -494,6 +494,19 @@ describe('calculatePdfCoords', () => {
     expect(r2.y).toBeLessThan(r1.y);
   });
 
+  it('with signatureHeight, returns true bottom-left corner for drawImage', () => {
+    // Signature at canvasY=100, height=80 on 800x1131 canvas
+    // Bottom edge in canvas = 100 + 80 = 180
+    // Bottom-left y in PDF = 841.89 - (180/1131) * 841.89 = 841.89 - 133.95 = 707.94
+    const result = calculatePdfCoords(100, 100, 800, 1131, 595.28, 841.89, 80);
+    expect(result.y).toBeCloseTo(707.94, 1);
+    // Without signatureHeight, returns top edge position (767.5)
+    const noHeight = calculatePdfCoords(100, 100, 800, 1131, 595.28, 841.89);
+    expect(noHeight.y).toBeCloseTo(767.5, 1);
+    // The bottom-left should be lower (smaller y) than the top edge
+    expect(result.y).toBeLessThan(noHeight.y);
+  });
+
   it('full flow: top-left canvas position maps to correct bottom-left for drawImage', async () => {
     // Simulate a 800x1131 canvas rendering an A4 PDF (595.28 x 841.89).
     // User places a 200x80 signature at canvas top-left (100, 100).
@@ -506,18 +519,16 @@ describe('calculatePdfCoords', () => {
     const sigCanvasW = 200;
     const sigCanvasH = 80;
 
-    // Step 1: convert position
-    const pos = calculatePdfCoords(sigCanvasX, sigCanvasY, canvasWidth, canvasHeight, pdfW, pdfH);
+    // Step 1: convert position (pass signatureHeight so we get true bottom-left)
+    const pos = calculatePdfCoords(sigCanvasX, sigCanvasY, canvasWidth, canvasHeight, pdfW, pdfH, sigCanvasH);
     // Step 2: convert dimensions
     const dims = calculatePdfDimensions(canvasWidth, canvasHeight, pdfW, pdfH, sigCanvasW, sigCanvasH);
 
     // pos.y should be the BOTTOM-LEFT y for drawImage.
-    // The TOP edge of the signature in PDF coords = pos.y + dims.height
-    // That top edge should equal pdfH - (sigCanvasY / canvasHeight) * pdfH + dims.height
-    // = pdfH - (100/1131)*pdfH + (80 * pdfW/canvasWidth)
-    const topEdgePdf = pdfH - (sigCanvasY / canvasHeight) * pdfH + dims.height;
-    // The bottom edge should be at pos.y
-    expect(pos.y).toBeCloseTo(pdfH - (sigCanvasY / canvasHeight) * pdfH, 5);
+    // bottom edge in canvas = sigCanvasY + sigCanvasH = 180
+    // bottom-left y in PDF = pdfH - (180 / canvasHeight) * pdfH
+    const expectedBottomY = pdfH - ((sigCanvasY + sigCanvasH) / canvasHeight) * pdfH;
+    expect(pos.y).toBeCloseTo(expectedBottomY, 5);
     // pos.x should be the LEFT edge
     expect(pos.x).toBeCloseTo((sigCanvasX / canvasWidth) * pdfW, 5);
 

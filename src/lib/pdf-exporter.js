@@ -69,16 +69,14 @@ export async function exportSignedPdf(originalPdfBytes, placedSignatures) {
  * Convert canvas pixel coordinates (origin top-left, y goes down)
  * to PDF coordinates (origin bottom-left, y goes up).
  *
- * IMPORTANT: canvasX and canvasY should be the **top-left** corner of the
+ * canvasX and canvasY should be the **top-left** corner of the
  * signature on the canvas. The returned { x, y } is the **bottom-left**
  * corner in PDF coordinate space, which is exactly what pdf-lib's
- * `drawImage({ x, y })` expects (it places the image with x,y as the
- * bottom-left anchor).
+ * `drawImage({ x, y })` expects.
  *
- * Why this works: if canvasY is the top edge of the signature on the canvas
- * (y-down), then `pdfPageHeight - (canvasY / canvasHeight) * pdfPageHeight`
- * yields the same horizontal line measured from the PDF page bottom (y-up).
- * That line *is* the bottom edge of the signature in PDF space.
+ * To correctly compute the bottom-left y coordinate, the signature's
+ * height (in canvas pixels) is required so we can account for the full
+ * vertical extent of the signature.
  *
  * @param {number} canvasX  Top-left x of the signature in canvas pixels.
  * @param {number} canvasY  Top-left y of the signature in canvas pixels.
@@ -86,6 +84,10 @@ export async function exportSignedPdf(originalPdfBytes, placedSignatures) {
  * @param {number} canvasHeight
  * @param {number} pdfPageWidth
  * @param {number} pdfPageHeight
+ * @param {number} [signatureCanvasHeight] - Optional: signature height in canvas pixels.
+ *   When provided, the returned y accounts for the full height of the signature,
+ *   yielding the true bottom-left corner. When omitted, returns the top edge
+ *   in PDF coordinates.
  * @returns {{x: number, y: number}} Bottom-left position in PDF points.
  */
 export function calculatePdfCoords(
@@ -95,9 +97,13 @@ export function calculatePdfCoords(
   canvasHeight,
   pdfPageWidth,
   pdfPageHeight,
+  signatureCanvasHeight = 0,
 ) {
   const x = (canvasX / canvasWidth) * pdfPageWidth;
-  const y = pdfPageHeight - (canvasY / canvasHeight) * pdfPageHeight;
+  // Convert the BOTTOM edge of the signature (canvasY + height) to PDF coords,
+  // then subtract the scaled signature height to get the bottom-left anchor.
+  const bottomEdgeCanvasY = canvasY + signatureCanvasHeight;
+  const y = pdfPageHeight - (bottomEdgeCanvasY / canvasHeight) * pdfPageHeight;
   return { x, y };
 }
 
