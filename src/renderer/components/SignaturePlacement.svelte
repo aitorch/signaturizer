@@ -445,8 +445,9 @@
       class="absolute inset-0 cursor-crosshair"
       style="pointer-events: auto;"
       onclick={handlePlaceClick}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handlePlaceClick(e); } }}
       role="button"
-      tabindex="-1"
+      tabindex="0"
       aria-label="Click to place signature"
     ></div>
   {:else}
@@ -455,8 +456,9 @@
       class="absolute inset-0"
       style="pointer-events: auto;"
       onclick={handleBackgroundClick}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBackgroundClick(e); } }}
       role="button"
-      tabindex="-1"
+      tabindex="0"
       aria-label="Click to deselect"
     ></div>
   {/if}

@@ -10,7 +10,7 @@
     onClose = () => {},
   } = $props();
 
-  let container;
+  let container = $state(null);
   let confirmingDeleteId = $state(null);
 
   $effect(() => {
@@ -89,9 +89,9 @@
 
       <div class="max-h-[220px] overflow-y-auto">
         {#each signatures as signature (signature.id)}
-          <div class="group flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer relative" onclick={() => handleSelect(signature)}>
+          <div class="group flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer relative" onclick={() => handleSelect(signature)} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(signature); } }}>
             {#if confirmingDeleteId === signature.id}
-              <div class="flex items-center gap-1 w-full" onclick={cancelDelete}>
+              <div class="flex items-center gap-1 w-full" onclick={cancelDelete} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cancelDelete(e); } }}>
                 <span class="text-xs text-red-600 font-medium">Delete?</span>
                 <button onclick={(e) => confirmDelete(signature.id, e)} class="text-xs text-red-600 font-semibold hover:text-red-700">Yes</button>
                 <button onclick={cancelDelete} class="text-xs text-gray-500 font-medium hover:text-gray-700">No</button>
