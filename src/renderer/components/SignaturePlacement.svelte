@@ -18,6 +18,9 @@
   let resizeStart = $state(null);
   let overlayEl = $state(null);
 
+  // Overlay position/size — matched to the PDF canvas element
+  let overlayRect = $state({ left: 0, top: 0, width: 0, height: 0 });
+
   const DEFAULT_WIDTH = 200;
   const DEFAULT_HEIGHT = 100;
   const MIN_WIDTH = 30;
@@ -365,6 +368,48 @@
   // ---- Get selected signature for color picker positioning ----
   let selectedSig = $derived(placedSignatures.find(s => s.id === selectedPlacedId));
 
+  // ---- Track canvas position to align overlay exactly over the PDF canvas ----
+  $effect(() => {
+    function updateOverlayRect() {
+      if (!canvasRef || !overlayEl) return;
+      const canvasRect = canvasRef.getBoundingClientRect();
+      const overlayParent = overlayEl.parentElement;
+      if (!overlayParent) return;
+      const parentRect = overlayParent.getBoundingClientRect();
+      overlayRect = {
+        left: canvasRect.left - parentRect.left,
+        top: canvasRect.top - parentRect.top,
+        width: canvasRect.width,
+        height: canvasRect.height,
+      };
+    }
+
+    // Update immediately and on every frame
+    updateOverlayRect();
+
+    // Watch for scroll and resize
+    const scrollContainer = canvasRef?.closest('.overflow-auto');
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', updateOverlayRect);
+    }
+    window.addEventListener('resize', updateOverlayRect);
+
+    // Use ResizeObserver to track canvas size changes (e.g. zoom)
+    let resizeObserver;
+    if (canvasRef && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(updateOverlayRect);
+      resizeObserver.observe(canvasRef);
+    }
+
+    return () => {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', updateOverlayRect);
+      }
+      window.removeEventListener('resize', updateOverlayRect);
+      if (resizeObserver) resizeObserver.disconnect();
+    };
+  });
+
   // ---- Global event listeners ----
   $effect(() => {
     window.addEventListener('mousemove', handleMouseMove);
@@ -380,8 +425,8 @@
 </script>
 
 <div
-  class="absolute inset-0"
-  style="pointer-events: none;"
+  class="absolute"
+  style="pointer-events: none; left: {overlayRect.left}px; top: {overlayRect.top}px; width: {overlayRect.width}px; height: {overlayRect.height}px;"
   bind:this={overlayEl}
 >
   <!-- Click area for placing new signatures -->
