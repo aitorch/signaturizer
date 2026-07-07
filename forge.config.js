@@ -7,16 +7,8 @@ export default {
   rebuildConfig: {},
   makers: [
     {
-      name: '@electron-forge/maker-deb',
-      config: {
-        options: {
-          arch: 'x64',
-        },
-      },
-    },
-    {
       name: '@electron-forge/maker-zip',
-      platforms: ['linux'],
+      platforms: ['linux', 'darwin', 'win32'],
     },
   ],
   plugins: [

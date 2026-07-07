@@ -8,7 +8,8 @@
     "start": "electron-forge start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build": "electron-forge make"
+    "build": "electron-forge make",
+    "build:deb": "electron-forge make --targets @electron-forge/maker-deb"
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",
