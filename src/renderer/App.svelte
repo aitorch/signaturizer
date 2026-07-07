@@ -63,16 +63,15 @@
   async function handleOpenPdf() {
     try {
       if (!api) return;
-      const filePath = await api.openFileDialog();
-      if (!filePath) return;
-      const data = await api.readFile(filePath);
-      if (data && data.error) {
-        console.error('Failed to read file:', data.error);
+      const result = await api.openPdfFromDialog();
+      if (!result) return;
+      if (result.error) {
+        console.error('Failed to read file:', result.error);
         showError('Failed to open PDF');
         return;
       }
-      pdfData = data;
-      pdfFileName = filePath.split('/').pop();
+      pdfData = result.data;
+      pdfFileName = result.fileName;
     } catch (err) {
       console.error('Failed to open PDF:', err);
       showError('Failed to open PDF');
@@ -82,8 +81,6 @@
   async function handleExport() {
     try {
       if (!api || !pdfData) return;
-      const savePath = await api.saveFileDialog(pdfFileName || 'signed.pdf');
-      if (!savePath) return;
 
       // Get placed signatures from placement component
       if (!placementRef || !canvasRef) return;
@@ -119,11 +116,18 @@
       const originalBytes = new Uint8Array(pdfData);
       const exportResult = await exportSignedPdf(originalBytes, signaturesForExport);
 
-      // Write to file — slice the buffer to get only the relevant bytes
-      await api.writeFile(savePath, exportResult.buffer.slice(
+      // Save via dedicated IPC handler — slice the buffer to get only the relevant bytes
+      const pdfBytes = exportResult.buffer.slice(
         exportResult.byteOffset,
         exportResult.byteOffset + exportResult.byteLength
-      ));
+      );
+      const saveResult = await api.saveSignedPdf(pdfBytes, pdfFileName || 'signed.pdf');
+      if (saveResult && saveResult.error) {
+        console.error('Failed to save file:', saveResult.error);
+        showError('Failed to save PDF');
+        return;
+      }
+      if (saveResult === null) return; // User canceled
 
       showSuccess('PDF exported successfully');
     } catch (err) {

@@ -23,6 +23,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
 
@@ -44,37 +45,37 @@ function createWindow() {
 
 // ── IPC Handlers ─────────────────────────────────────────────────────────────
 
-ipcMain.handle('open-file-dialog', async () => {
+// Open a PDF file via dialog and return its bytes — replaces generic read-file
+ipcMain.handle('open-pdf-from-dialog', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
     filters: [{ name: 'PDF Documents', extensions: ['pdf'] }],
   });
-  if (result.canceled) return null;
-  return result.filePaths[0] || null;
-});
+  if (result.canceled || !result.filePaths[0]) return null;
 
-ipcMain.handle('save-file-dialog', async (_event, defaultName) => {
-  const result = await dialog.showSaveDialog({
-    defaultPath: defaultName || 'document.pdf',
-    filters: [{ name: 'PDF Documents', extensions: ['pdf'] }],
-  });
-  if (result.canceled) return null;
-  return result.filePath;
-});
-
-ipcMain.handle('read-file', (_event, filePath) => {
+  const filePath = result.filePaths[0];
   try {
     const buffer = fs.readFileSync(filePath);
-    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    return {
+      fileName: path.basename(filePath),
+      data: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
+    };
   } catch (err) {
     return { error: err.message };
   }
 });
 
-ipcMain.handle('write-file', (_event, filePath, data) => {
+// Save signed PDF bytes to a file chosen via dialog — replaces generic write-file
+ipcMain.handle('save-signed-pdf', async (_event, data, suggestedName) => {
+  const result = await dialog.showSaveDialog({
+    defaultPath: suggestedName || 'signed.pdf',
+    filters: [{ name: 'PDF Documents', extensions: ['pdf'] }],
+  });
+  if (result.canceled || !result.filePath) return null;
+
   try {
     const buffer = Buffer.from(data);
-    fs.writeFileSync(filePath, buffer);
+    fs.writeFileSync(result.filePath, buffer);
     return true;
   } catch (err) {
     return { error: err.message };

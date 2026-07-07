@@ -1,11 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
-  saveFileDialog: (defaultName) => ipcRenderer.invoke('save-file-dialog', defaultName),
-  readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
-  writeFile: (filePath, data) => ipcRenderer.invoke('write-file', filePath, data),
-  getUserDataPath: () => ipcRenderer.invoke('get-user-data-path'),
+  // PDF operations — specific actions, no generic file read/write
+  openPdfFromDialog: () => ipcRenderer.invoke('open-pdf-from-dialog'),
+  saveSignedPdf: (data, suggestedName) => ipcRenderer.invoke('save-signed-pdf', data, suggestedName),
+
+  // Signature storage — scoped to userData/signatures.json
   readSignatures: () => ipcRenderer.invoke('read-signatures'),
   writeSignatures: (data) => ipcRenderer.invoke('write-signatures', data),
 });
