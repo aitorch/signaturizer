@@ -21,7 +21,7 @@
     ]
   },
   "review": {
-    "lint_command": null,
+    "lint_command": "npm test",
     "always_adversary": true
   },
   "adversary_model": "smart",
