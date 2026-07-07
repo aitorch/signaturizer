@@ -34,13 +34,18 @@
   function getPlacedSignatures(canvasWidth, canvasHeight, pdfPageWidth, pdfPageHeight) {
     return placedSignatures
       .filter(s => s.page === currentPage)
-      .map(s => ({
-        ...s,
-        pdfX: (s.x / canvasWidth) * pdfPageWidth,
-        pdfY: pdfPageHeight - ((s.y + s.height) / canvasHeight) * pdfPageHeight,
-        pdfWidth: (s.width / canvasWidth) * pdfPageWidth,
-        pdfHeight: (s.height / canvasHeight) * pdfPageHeight,
-      }));
+      .map(s => {
+        // Use stored canvas dimensions if available for accuracy
+        const cw = s.canvasWidth || canvasWidth;
+        const ch = s.canvasHeight || canvasHeight;
+        return {
+          ...s,
+          pdfX: (s.x / cw) * pdfPageWidth,
+          pdfY: pdfPageHeight - ((s.y + s.height) / ch) * pdfPageHeight,
+          pdfWidth: (s.width / cw) * pdfPageWidth,
+          pdfHeight: (s.height / ch) * pdfPageHeight,
+        };
+      });
   }
 
   function getAllPlacedSignatures() {
@@ -60,15 +65,21 @@
 
   export function getAllPlacedForExport(canvasWidth, canvasHeight, pageDimensions) {
     // pageDimensions is an object: { [pageNum]: { width, height } }
+    // Each signature stores the canvas dimensions at placement time.
+    // We use those stored dimensions (not the current canvas) for coordinate
+    // conversion, so zoom changes after placement don't affect export accuracy.
     return placedSignatures.map(sig => {
       const dims = pageDimensions[sig.page];
       if (!dims) return null;
+      // Use the canvas dimensions recorded at placement time
+      const cw = sig.canvasWidth || canvasWidth;
+      const ch = sig.canvasHeight || canvasHeight;
       return {
         ...sig,
-        pdfX: (sig.x / canvasWidth) * dims.width,
-        pdfY: dims.height - ((sig.y + sig.height) / canvasHeight) * dims.height,
-        pdfWidth: (sig.width / canvasWidth) * dims.width,
-        pdfHeight: (sig.height / canvasHeight) * dims.height,
+        pdfX: (sig.x / cw) * dims.width,
+        pdfY: dims.height - ((sig.y + sig.height) / ch) * dims.height,
+        pdfWidth: (sig.width / cw) * dims.width,
+        pdfHeight: (sig.height / ch) * dims.height,
       };
     }).filter(Boolean);
   }
@@ -107,6 +118,11 @@
     const pos = getRelativePos(e);
     const id = uuidv4();
 
+    // Record the canvas (overlay) dimensions at placement time so export
+    // can convert coordinates correctly regardless of later zoom changes.
+    const canvasWidth = overlayEl ? overlayEl.clientWidth : 0;
+    const canvasHeight = overlayEl ? overlayEl.clientHeight : 0;
+
     const newSig = {
       id,
       signatureId: selectedSignature.id,
@@ -118,6 +134,8 @@
       imageData: selectedSignature.imageData,
       originalImageData: selectedSignature.imageData,
       color: null,
+      canvasWidth,
+      canvasHeight,
     };
 
     // Constrain within overlay

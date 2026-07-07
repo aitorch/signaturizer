@@ -403,6 +403,8 @@ describe('SignaturePlacement', () => {
       expect(placed).toHaveProperty('height');
       expect(placed).toHaveProperty('page');
       expect(placed).toHaveProperty('signatureId');
+      expect(placed).toHaveProperty('canvasWidth');
+      expect(placed).toHaveProperty('canvasHeight');
     });
   });
 
@@ -461,6 +463,8 @@ describe('SignaturePlacement', () => {
       expect(placed.imageData).toBe(sig.imageData);
       expect(placed.originalImageData).toBe(sig.imageData);
       expect(placed.color).toBeNull();
+      expect(placed.canvasWidth).toBe(800);
+      expect(placed.canvasHeight).toBe(600);
     });
   });
 
