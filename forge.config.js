@@ -2,7 +2,7 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 
 export default {
   packagerConfig: {
-    // icon: './src/assets/icon', // TODO: add icon later
+    icon: './build/icons/icon',
   },
   rebuildConfig: {},
   makers: [

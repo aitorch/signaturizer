@@ -1,0 +1,34 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <linearGradient id="pen" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E0E7FF"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- Document -->
+  <rect x="140" y="100" width="200" height="240" rx="16" fill="white" fill-opacity="0.15"/>
+  <rect x="140" y="100" width="200" height="240" rx="16" stroke="white" stroke-opacity="0.3" stroke-width="2"/>
+  <!-- Document lines -->
+  <line x1="170" y1="150" x2="310" y2="150" stroke="white" stroke-opacity="0.2" stroke-width="4" stroke-linecap="round"/>
+  <line x1="170" y1="185" x2="310" y2="185" stroke="white" stroke-opacity="0.2" stroke-width="4" stroke-linecap="round"/>
+  <line x1="170" y1="220" x2="280" y2="220" stroke="white" stroke-opacity="0.2" stroke-width="4" stroke-linecap="round"/>
+  <!-- Signature swoosh on document -->
+  <path d="M165 290 Q200 260 230 290 T290 280 Q310 270 320 290" stroke="white" stroke-width="4" stroke-linecap="round" fill="none" stroke-opacity="0.6"/>
+  <!-- Pen body -->
+  <g transform="translate(256 256) rotate(-45)">
+    <!-- Pen barrel -->
+    <rect x="-12" y="-100" width="24" height="120" rx="4" fill="url(#pen)"/>
+    <!-- Pen tip (nib) -->
+    <path d="M-12 20 L0 50 L12 20 Z" fill="#E0E7FF"/>
+    <!-- Pen top -->
+    <rect x="-14" y="-105" width="28" height="10" rx="3" fill="#C7D2FE"/>
+    <!-- Clip -->
+    <rect x="12" y="-80" width="4" height="30" rx="2" fill="#A5B4FC"/>
+  </g>
+</svg>
