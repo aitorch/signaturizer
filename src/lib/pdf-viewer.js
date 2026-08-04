@@ -22,8 +22,27 @@ export function cancelActiveRender() {
  * @returns {Promise<pdfjsLib.PDFDocumentProxy>}
  */
 export async function loadPdf(arrayBuffer) {
-  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-  return loadingTask.promise;
+  // Caller should pass a fresh Uint8Array or ArrayBuffer.
+  // We create a copy so pdf.js can transfer it to its worker safely.
+  let data;
+  if (arrayBuffer instanceof Uint8Array) {
+    data = arrayBuffer.slice(0);
+  } else if (arrayBuffer instanceof ArrayBuffer) {
+    data = arrayBuffer.slice(0);
+  } else {
+    data = arrayBuffer; // let pdf.js handle it
+  }
+  console.log('[pdf-viewer] loadPdf:', (data?.byteLength || data?.length || '?'), 'bytes');
+  const loadingTask = pdfjsLib.getDocument({
+    data,
+    // Electron + sandboxed renderer + Vite can leave the pdf.js worker stuck.
+    // Running parsing in the renderer avoids worker transfer/detach issues and
+    // is fast enough for the small business PDFs this app handles.
+    disableWorker: true,
+  });
+  const doc = await loadingTask.promise;
+  console.log('[pdf-viewer] loaded:', doc.numPages, 'pages');
+  return doc;
 }
 
 /**
@@ -48,6 +67,7 @@ export async function renderPage(pdfDoc, pageNum, canvas, scale = 1.0) {
   const myId = ++activeRenderId;
   cancelActiveRender();
 
+  console.log('[pdf-viewer] renderPage start:', pageNum, 'scale', scale);
   const page = await pdfDoc.getPage(pageNum);
   const viewport = page.getViewport({ scale });
 
@@ -70,6 +90,7 @@ export async function renderPage(pdfDoc, pageNum, canvas, scale = 1.0) {
     activeRenderTask = null;
   }
 
+  console.log('[pdf-viewer] renderPage done:', pageNum, viewport.width, viewport.height);
   return { width: viewport.width, height: viewport.height };
 }
 

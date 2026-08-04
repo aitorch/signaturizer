@@ -1,6 +1,6 @@
 <script>
   import { untrack } from 'svelte';
-  import { cropImage, removeBackground } from '../../lib/image-processor.js';
+  import { cropImage, removePaperBackground } from '../../lib/image-processor.js';
 
   let { isOpen = false, onCapture, onCancel } = $props();
 
@@ -19,7 +19,7 @@
 
   // Crop state
   let cropRect = $state({ x: 0, y: 0, width: 100, height: 60 });
-  let threshold = $state(200);
+  let sensitivity = $state(14);
 
   // Drag interaction state
   let isDragging = $state(false);
@@ -120,7 +120,7 @@
       capturedCanvas = null;
       cameraError = null;
       cropRect = { x: 0, y: 0, width: 100, height: 60 };
-      threshold = 200;
+      sensitivity = 14;
       hoverHandle = null;
       untrack(() => startCamera(selectedDeviceId));
     }
@@ -184,7 +184,7 @@
 
   function handleDone() {
     if (typeof onCapture === 'function') {
-      onCapture({ capturedCanvas, cropRect, threshold });
+      onCapture({ capturedCanvas, cropRect, sensitivity });
     }
   }
 
@@ -219,7 +219,7 @@
   $effect(() => {
     const canvas = capturedCanvas;
     const rect = cropRect;
-    const thresh = threshold;
+    const inkSensitivity = sensitivity;
     const previewEl = previewCanvasEl;
 
     if (!canvas || !previewEl) return;
@@ -231,7 +231,7 @@
         const cropped = cropImage(canvas, rect);
         const ctx = cropped.getContext('2d');
         const imgData = ctx.getImageData(0, 0, cropped.width, cropped.height);
-        const processed = removeBackground(imgData, thresh);
+        const processed = removePaperBackground(imgData, { sensitivity: inkSensitivity });
         ctx.putImageData(processed, 0, 0);
 
         // Scale preview to fit ~150px max dimension
@@ -550,19 +550,19 @@
             </div>
           {/if}
         {:else if mode === 'crop'}
-          <!-- Threshold slider -->
+          <!-- Sensitivity slider -->
           <div class="flex items-center gap-3">
-            <label for="threshold-slider" class="text-xs font-medium text-gray-600 shrink-0">Threshold:</label>
+            <label for="sensitivity-slider" class="text-xs font-medium text-gray-600 shrink-0">Sensitivity:</label>
             <input
-              id="threshold-slider"
+              id="sensitivity-slider"
               type="range"
-              min="0"
-              max="255"
+              min="2"
+              max="60"
               step="1"
-              bind:value={threshold}
+              bind:value={sensitivity}
               class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
             />
-            <span class="text-xs text-gray-600 tabular-nums w-8 text-right">{threshold}</span>
+            <span class="text-xs text-gray-600 tabular-nums w-8 text-right">{sensitivity}</span>
           </div>
 
           <!-- Live preview -->

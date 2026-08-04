@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   luminance,
   removeBackground,
+  removePaperBackground,
+  trimTransparentPixels,
   applyColorTint,
 } from '../image-processor.js';
 
@@ -228,6 +230,90 @@ describe('removeBackground', () => {
 });
 
 // ---------------------------------------------------------------------------
+// removePaperBackground
+// ---------------------------------------------------------------------------
+
+describe('removePaperBackground', () => {
+  it('removes gradual paper shadows while preserving dark ink', () => {
+    const width = 7;
+    const height = 3;
+    const data = new Uint8ClampedArray(width * height * 4);
+    const paper = [235, 225, 215, 200, 185, 172, 160];
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        const v = paper[x];
+        data[i] = v;
+        data[i + 1] = v;
+        data[i + 2] = v;
+        data[i + 3] = 255;
+      }
+    }
+
+    // Add a black stroke in the same shadowed area.
+    const inkIdx = (1 * width + 5) * 4;
+    data[inkIdx] = 35;
+    data[inkIdx + 1] = 35;
+    data[inkIdx + 2] = 35;
+
+    const img = new ImageData(data, width, height);
+    const result = removePaperBackground(img, { sensitivity: 35, radius: 2, softness: 10 });
+
+    // Shadowed paper at x=6 should be transparent, not mistaken for ink.
+    expect(result.data[(1 * width + 6) * 4 + 3]).toBe(0);
+    // The actual black stroke should remain visible.
+    expect(result.data[inkIdx + 3]).toBeGreaterThan(180);
+  });
+
+  it('does not mutate the original imageData', () => {
+    const img = solidImageData(2, 2, 210, 210, 210);
+    const originalData = new Uint8ClampedArray(img.data);
+
+    removePaperBackground(img);
+
+    expect(img.data).toEqual(originalData);
+  });
+
+  it('throws for invalid sensitivity', () => {
+    const img = solidImageData(1, 1, 255, 255, 255);
+
+    expect(() => removePaperBackground(img, { sensitivity: -1 })).toThrow('sensitivity must be a number between 0 and 255');
+    expect(() => removePaperBackground(img, { sensitivity: 256 })).toThrow('sensitivity must be a number between 0 and 255');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// trimTransparentPixels
+// ---------------------------------------------------------------------------
+
+describe('trimTransparentPixels', () => {
+  it('trims transparent borders around visible ink', () => {
+    const data = new Uint8ClampedArray(5 * 5 * 4);
+    const center = (2 * 5 + 2) * 4;
+    data[center] = 0;
+    data[center + 1] = 0;
+    data[center + 2] = 0;
+    data[center + 3] = 255;
+
+    const result = trimTransparentPixels(new ImageData(data, 5, 5), 1);
+
+    expect(result.width).toBe(3);
+    expect(result.height).toBe(3);
+    expect(result.data[(1 * 3 + 1) * 4 + 3]).toBe(255);
+  });
+
+  it('returns a 1x1 transparent image when no ink exists', () => {
+    const img = solidImageData(3, 3, 255, 255, 255, 0);
+    const result = trimTransparentPixels(img);
+
+    expect(result.width).toBe(1);
+    expect(result.height).toBe(1);
+    expect(result.data[3]).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // applyColorTint
 // ---------------------------------------------------------------------------
 
@@ -273,10 +359,9 @@ describe('applyColorTint', () => {
     const img = new ImageData(data, 1, 1);
     const result = applyColorTint(img, { r: 0, g: 255, b: 0 });
 
-    const lum = luminance(200, 200, 200);
-    expect(result.data[0]).toBe(Math.round(0 * (lum / 255)));
-    expect(result.data[1]).toBe(Math.round(255 * (lum / 255)));
-    expect(result.data[2]).toBe(Math.round(0 * (lum / 255)));
+    expect(result.data[0]).toBe(0);
+    expect(result.data[1]).toBe(255);
+    expect(result.data[2]).toBe(0);
     expect(result.data[3]).toBe(128); // alpha preserved
   });
 
@@ -291,16 +376,13 @@ describe('applyColorTint', () => {
     expect(result.data[2]).toBe(100); // B unchanged
   });
 
-  it('tints based on luminance of original pixel', () => {
-    // Gray pixel with lum ≈ 128
-    const r = 100, g = 100, b = 100;
-    const lum = luminance(r, g, b);
-    const img = solidImageData(1, 1, r, g, b);
+  it('replaces visible RGB with the selected ink color', () => {
+    const img = solidImageData(1, 1, 100, 100, 100);
     const result = applyColorTint(img, { r: 255, g: 128, b: 0 });
 
-    expect(result.data[0]).toBe(Math.round(255 * (lum / 255)));
-    expect(result.data[1]).toBe(Math.round(128 * (lum / 255)));
-    expect(result.data[2]).toBe(Math.round(0 * (lum / 255)));
+    expect(result.data[0]).toBe(255);
+    expect(result.data[1]).toBe(128);
+    expect(result.data[2]).toBe(0);
   });
 
   it('tints a mixed 2×2 image correctly', () => {
@@ -315,12 +397,11 @@ describe('applyColorTint', () => {
     // TL: lum=255 → G = 255 * (255/255) = 255
     expect(result.data[1]).toBe(255);
 
-    // TR: lum of gray ≈ 128
-    const grayLum = luminance(128, 128, 128);
-    expect(result.data[5]).toBe(Math.round(255 * (grayLum / 255)));
+    // TR: gray but visible → selected green
+    expect(result.data[5]).toBe(255);
 
-    // BL: lum=0 → G = 255 * 0 = 0
-    expect(result.data[9]).toBe(0);
+    // BL: black but visible → selected green
+    expect(result.data[9]).toBe(255);
 
     // BR: transparent → stays unchanged (pixel 3: indices 12-15)
     expect(result.data[12]).toBe(255); // R unchanged

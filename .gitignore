@@ -4,3 +4,17 @@ out/
 .electron/
 .vite/
 *.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Agenteam (internal AI dev tool)
+.agenteam/
+agenteam.config.json

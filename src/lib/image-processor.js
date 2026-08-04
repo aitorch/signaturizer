@@ -115,14 +115,161 @@ export function removeBackground(imageData, threshold = 200) {
   return new ImageData(out, imageData.width, imageData.height);
 }
 
+function clampByte(value) {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
 /**
- * Apply a color tint to non-transparent pixels using a multiply blend:
- * each output channel = tint channel × (pixel luminance / 255).
+ * Remove paper and shadows from a signature capture.
  *
- * This is NOT a luminance-preserving tint — it replaces the pixel color
- * with the tint color scaled by the original pixel's brightness. For
- * signature images this is desirable: dark ink areas stay dark, light
- * areas adopt the tint color, producing a natural colored-ink effect.
+ * The old threshold method treated every dark-ish pixel as ink, so paper
+ * shadows became part of the raster. This uses local contrast instead:
+ * each pixel is compared with the average brightness around it. Gradual
+ * lighting changes vanish, while strokes stay because they are dark
+ * relative to nearby paper.
+ *
+ * @param {ImageData} imageData
+ * @param {{ sensitivity?: number, radius?: number, softness?: number }} [options]
+ * @returns {ImageData} New ImageData with a transparent paper background
+ */
+export function removePaperBackground(imageData, options = {}) {
+  if (!imageData || !imageData.data) {
+    throw new Error('imageData is required');
+  }
+
+  const sensitivity = options.sensitivity ?? 14;
+  const radius = Math.max(3, Math.round(options.radius ?? Math.min(36, Math.max(10, Math.min(imageData.width, imageData.height) / 24))));
+  const softness = Math.max(4, options.softness ?? 12);
+
+  if (typeof sensitivity !== 'number' || Number.isNaN(sensitivity) || sensitivity < 0 || sensitivity > 255) {
+    throw new Error('sensitivity must be a number between 0 and 255');
+  }
+
+  const { width, height } = imageData;
+  const src = imageData.data;
+  const pixelCount = width * height;
+  const lum = new Float32Array(pixelCount);
+  const integral = new Float64Array((width + 1) * (height + 1));
+  const out = new Uint8ClampedArray(src.length);
+
+  for (let y = 0; y < height; y++) {
+    let rowSum = 0;
+    for (let x = 0; x < width; x++) {
+      const p = y * width + x;
+      const i = p * 4;
+      const value = luminance(src[i], src[i + 1], src[i + 2]);
+      lum[p] = value;
+      rowSum += value;
+      integral[(y + 1) * (width + 1) + (x + 1)] = integral[y * (width + 1) + (x + 1)] + rowSum;
+    }
+  }
+
+  for (let y = 0; y < height; y++) {
+    const y0 = Math.max(0, y - radius);
+    const y1 = Math.min(height - 1, y + radius);
+    for (let x = 0; x < width; x++) {
+      const x0 = Math.max(0, x - radius);
+      const x1 = Math.min(width - 1, x + radius);
+      const area = (x1 - x0 + 1) * (y1 - y0 + 1);
+      const sum =
+        integral[(y1 + 1) * (width + 1) + (x1 + 1)] -
+        integral[y0 * (width + 1) + (x1 + 1)] -
+        integral[(y1 + 1) * (width + 1) + x0] +
+        integral[y0 * (width + 1) + x0];
+
+      const p = y * width + x;
+      const i = p * 4;
+      const localPaper = sum / area;
+      const contrast = localPaper - lum[p];
+      const ink = clamp01((contrast - sensitivity) / softness);
+      const alpha = clampByte(255 * Math.pow(ink, 0.8) * (src[i + 3] / 255));
+
+      if (alpha <= 2) {
+        out[i] = 0;
+        out[i + 1] = 0;
+        out[i + 2] = 0;
+        out[i + 3] = 0;
+      } else {
+        const darkness = clamp01((contrast + 20) / 120);
+        const channel = clampByte(42 * (1 - darkness));
+        out[i] = channel;
+        out[i + 1] = channel;
+        out[i + 2] = channel;
+        out[i + 3] = alpha;
+      }
+    }
+  }
+
+  return new ImageData(out, width, height);
+}
+
+/**
+ * Trim transparent edges from ImageData, keeping a small padding.
+ *
+ * @param {ImageData} imageData
+ * @param {number} [padding=8]
+ * @returns {ImageData}
+ */
+export function trimTransparentPixels(imageData, padding = 8) {
+  if (!imageData || !imageData.data) {
+    throw new Error('imageData is required');
+  }
+
+  const { width, height, data } = imageData;
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const a = data[(y * width + x) * 4 + 3];
+      if (a > 8) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return new ImageData(new Uint8ClampedArray(4), 1, 1);
+  }
+
+  const x0 = Math.max(0, minX - padding);
+  const y0 = Math.max(0, minY - padding);
+  const x1 = Math.min(width - 1, maxX + padding);
+  const y1 = Math.min(height - 1, maxY + padding);
+  const outWidth = x1 - x0 + 1;
+  const outHeight = y1 - y0 + 1;
+  const out = new Uint8ClampedArray(outWidth * outHeight * 4);
+
+  for (let y = 0; y < outHeight; y++) {
+    for (let x = 0; x < outWidth; x++) {
+      const srcIdx = ((y0 + y) * width + (x0 + x)) * 4;
+      const dstIdx = (y * outWidth + x) * 4;
+      out[dstIdx] = data[srcIdx];
+      out[dstIdx + 1] = data[srcIdx + 1];
+      out[dstIdx + 2] = data[srcIdx + 2];
+      out[dstIdx + 3] = data[srcIdx + 3];
+    }
+  }
+
+  return new ImageData(out, outWidth, outHeight);
+}
+
+/**
+ * Apply a color tint to non-transparent signature pixels.
+ *
+ * Processed signatures encode stroke intensity primarily in alpha. Scaling
+ * the requested color by pixel luminance makes black ink stay black, so blue
+ * or gray appears not to work. Instead, keep the alpha shape and replace the
+ * visible RGB channels with the requested ink color.
  *
  * Creates a NEW ImageData — the original is never mutated.
  *
@@ -161,10 +308,9 @@ export function applyColorTint(imageData, color) {
       out[i + 2] = b;
       out[i + 3] = a;
     } else {
-      const lum = luminance(r, g, b);
-      out[i] = Math.round(color.r * (lum / 255));
-      out[i + 1] = Math.round(color.g * (lum / 255));
-      out[i + 2] = Math.round(color.b * (lum / 255));
+      out[i] = Math.round(color.r);
+      out[i + 1] = Math.round(color.g);
+      out[i + 2] = Math.round(color.b);
       out[i + 3] = a;
     }
   }

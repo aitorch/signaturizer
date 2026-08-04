@@ -1,4 +1,5 @@
 <script>
+  import { untrack } from 'svelte';
   import { loadPdf, getPageCount, renderPage } from '../../lib/pdf-viewer.js';
 
   let {
@@ -36,8 +37,9 @@
   $effect(() => {
     const data = pdfData;
 
-    if (pdfDoc) {
-      pdfDoc.destroy().catch(() => {});
+    const previousDoc = untrack(() => pdfDoc);
+    if (previousDoc) {
+      previousDoc.destroy().catch(() => {});
       pdfDoc = null;
     }
 
@@ -54,7 +56,12 @@
 
     (async () => {
       try {
-        const doc = await loadPdf(data);
+        // pdfData is a Uint8Array from base64 decode — always fresh, never detached
+        const ab = data instanceof Uint8Array
+          ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+          : data;
+        console.log('[PdfViewer] Loading PDF:', ab.byteLength, 'bytes');
+        const doc = await loadPdf(ab);
         if (cancelled) { doc.destroy().catch(() => {}); return; }
         pdfDoc = doc;
         totalPages = getPageCount(doc);
@@ -71,9 +78,8 @@
 
     return () => {
       cancelled = true;
-      if (pdfDoc) {
-        pdfDoc.destroy().catch(() => {});
-      }
+      const activeDoc = untrack(() => pdfDoc);
+      activeDoc?.destroy().catch(() => {});
     };
   });
 

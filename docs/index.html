@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signaturizer — Capture. Place. Sign. Open-source desktop PDF signatures.</title>
+<meta name="description" content="Open-source desktop app for signing PDFs. Webcam capture, adaptive cleanup, visual placement, color tinting, HTTP API, and 100% local processing.">
+<style>
+  /* ─── Reset & Base ─────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: #0d0b1a;
+    color: #e2e0ec;
+    line-height: 1.65;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  ul { list-style: none; }
+
+  /* ─── Layout helpers ──────────────────────────────────── */
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 1.5rem; }
+  .section { padding: 5.5rem 0; position: relative; }
+  .section-title {
+    font-size: clamp(1.6rem, 4vw, 2.3rem);
+    font-weight: 700;
+    letter-spacing: -.02em;
+    margin-bottom: .6rem;
+    background: linear-gradient(135deg, #fff, #b8b4d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .section-subtitle { color: #8e89a8; font-size: 1.02rem; margin-bottom: 3rem; }
+
+  /* ─── Navbar ──────────────────────────────────────────── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(13,11,26,.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(99,102,241,.12);
+    transition: border-color .3s;
+  }
+  nav .container { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .nav-logo { display: flex; align-items: center; gap: .5rem; font-weight: 700; font-size: 1.15rem; letter-spacing: -.02em; }
+  .nav-logo svg { width: 26px; height: 26px; }
+  .nav-links { display: flex; gap: 1.8rem; }
+  .nav-links a { font-size: .9rem; color: #a5a1bc; transition: color .2s; }
+  .nav-links a:hover { color: #818cf8; }
+  .nav-gh { display: flex; align-items: center; gap: .4rem; font-size: .85rem; color: #c4c1d8; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: .35rem .7rem; transition: all .2s; }
+  .nav-gh:hover { border-color: #818cf8; color: #818cf8; }
+  .nav-gh svg { width: 18px; height: 18px; }
+  .menu-toggle { display: none; background: none; border: none; cursor: pointer; flex-direction: column; gap: 4px; padding: 6px; }
+  .menu-toggle span { display: block; width: 22px; height: 2px; background: #c4c1d8; border-radius: 2px; transition: .3s; }
+
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+    .menu-toggle { display: flex; }
+    .nav-links.open {
+      display: flex; flex-direction: column; position: absolute; top: 64px; left: 0; right: 0;
+      background: rgba(13,11,26,.96); padding: 1.5rem; gap: 1rem;
+      border-bottom: 1px solid rgba(99,102,241,.12);
+    }
+  }
+
+  /* ─── Hero ────────────────────────────────────────────── */
+  .hero {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    text-align: center; position: relative; overflow: hidden;
+    padding: 7rem 1.5rem 4rem;
+  }
+  .hero::before {
+    content: ''; position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 0%, rgba(99,102,241,.18), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 30% 100%, rgba(139,92,246,.12), transparent 60%);
+    pointer-events: none;
+  }
+  .hero::after {
+    content: ''; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(99,102,241,.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99,102,241,.025) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 80%);
+    pointer-events: none;
+  }
+  .hero-content { position: relative; z-index: 1; max-width: 780px; }
+
+  .hero-icon {
+    width: 80px; height: 80px; margin: 0 auto 1.8rem;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-radius: 22px;
+    box-shadow: 0 12px 40px rgba(99,102,241,.35), 0 0 0 1px rgba(255,255,255,.06) inset;
+  }
+  .hero-icon svg { width: 42px; height: 42px; stroke: #fff; }
+
+  .hero h1 {
+    font-size: clamp(2.4rem, 7vw, 4rem);
+    font-weight: 800; letter-spacing: -.035em; line-height: 1.08;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, #fff 0%, #c7d2fe 50%, #ddd6fe 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .hero-tagline {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    color: #a5a1bc; max-width: 560px; margin: 0 auto 2.5rem;
+    font-weight: 400;
+  }
+  .hero-tagline strong { color: #c7d2fe; font-weight: 600; }
+
+  /* Animated signature SVG */
+  .signature-wrap { margin: 0 auto 2.5rem; max-width: 320px; }
+  .signature-svg { width: 100%; height: auto; overflow: visible; }
+  .signature-path {
+    fill: none; stroke: url(#sigGrad); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+    stroke-dasharray: 600; stroke-dashoffset: 600;
+    animation: drawSig 3.5s ease-in-out 0.5s forwards;
+  }
+  .signature-path-2 {
+    fill: none; stroke: url(#sigGrad); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+    stroke-dasharray: 400; stroke-dashoffset: 400;
+    animation: drawSig 2.5s ease-in-out 1.8s forwards;
+  }
+  @keyframes drawSig { to { stroke-dashoffset: 0; } }
+
+  /* Buttons */
+  .hero-btns { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: .55rem;
+    padding: .8rem 1.7rem; border-radius: 12px; font-weight: 600; font-size: .95rem;
+    cursor: pointer; transition: all .25s ease; border: none; white-space: nowrap;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(99,102,241,.3);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(99,102,241,.42); }
+  .btn-secondary {
+    background: rgba(255,255,255,.04); color: #e2e0ec;
+    border: 1px solid rgba(255,255,255,.1);
+  }
+  .btn-secondary:hover { border-color: #818cf8; background: rgba(129,140,248,.08); transform: translateY(-2px); }
+  .btn svg { width: 19px; height: 19px; }
+
+  /* ─── Features Grid ───────────────────────────────────── */
+  .features-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.2rem;
+  }
+  .feature-card {
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 16px; padding: 1.8rem 1.5rem;
+    transition: transform .3s ease, border-color .3s ease, background .3s ease;
+  }
+  .feature-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(129,140,248,.3);
+    background: rgba(99,102,241,.04);
+  }
+  .feature-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, rgba(99,102,241,.12), rgba(139,92,246,.12));
+    margin-bottom: 1rem;
+  }
+  .feature-icon svg { width: 24px; height: 24px; stroke: #818cf8; }
+  .feature-card h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: .4rem; color: #e2e0ec; }
+  .feature-card p { font-size: .9rem; color: #8e89a8; line-height: 1.5; }
+
+  /* ─── How It Works ────────────────────────────────────── */
+  .steps-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem;
+  }
+  .step-card {
+    position: relative; text-align: center;
+    background: rgba(255,255,255,.02);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 16px; padding: 2.2rem 1.5rem 1.8rem;
+    transition: transform .3s ease, border-color .3s ease;
+  }
+  .step-card:hover { transform: translateY(-4px); border-color: rgba(129,140,248,.3); }
+  .step-number {
+    position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+    width: 40px; height: 40px; border-radius: 12px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 1.1rem; color: #fff;
+    box-shadow: 0 4px 14px rgba(99,102,241,.35);
+  }
+  .step-card h3 { font-size: 1.05rem; font-weight: 600; margin: .8rem 0 .4rem; }
+  .step-card p { font-size: .9rem; color: #8e89a8; }
+
+  /* ─── Tech Stack ──────────────────────────────────────── */
+  .tech-section { text-align: center; }
+  .tech-badges { display: flex; flex-wrap: wrap; gap: .8rem; justify-content: center; }
+  .tech-badge {
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .55rem 1.1rem; border-radius: 100px;
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.08);
+    font-size: .88rem; font-weight: 500; color: #c4c1d8;
+    transition: all .25s;
+  }
+  .tech-badge:hover { border-color: rgba(129,140,248,.4); color: #818cf8; transform: translateY(-2px); }
+  .tech-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ─── Privacy Callout ─────────────────────────────────── */
+  .privacy-callout {
+    background: linear-gradient(135deg, rgba(99,102,241,.06), rgba(139,92,246,.06));
+    border: 1px solid rgba(99,102,241,.15);
+    border-radius: 20px; padding: 3rem 2.5rem; text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .privacy-callout::before {
+    content: ''; position: absolute; top: -40%; right: -10%;
+    width: 300px; height: 300px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(139,92,246,.08), transparent 70%);
+    pointer-events: none;
+  }
+  .privacy-icon {
+    width: 56px; height: 56px; margin: 0 auto 1.2rem;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(99,102,241,.1); border-radius: 16px;
+  }
+  .privacy-icon svg { width: 30px; height: 30px; stroke: #818cf8; }
+  .privacy-callout h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: .6rem; }
+  .privacy-callout p { color: #a5a1bc; max-width: 580px; margin: 0 auto; font-size: .98rem; }
+
+  /* ─── Install ─────────────────────────────────────────── */
+  .install-section { text-align: center; }
+  .code-block {
+    background: #15121f; border: 1px solid rgba(255,255,255,.06);
+    border-radius: 14px; padding: 1.4rem 1.6rem; text-align: left;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+    font-size: .88rem; line-height: 1.8; color: #c4c1d8;
+    overflow-x: auto; max-width: 540px; margin: 0 auto;
+    position: relative;
+  }
+  .code-block .comment { color: #6b6786; }
+  .code-block .cmd { color: #818cf8; }
+  .code-block .flag { color: #c4b5fd; }
+  .code-block .str { color: #86efac; }
+  .code-tabs { display: flex; gap: .5rem; justify-content: center; margin-bottom: 1rem; }
+  .code-tab {
+    padding: .4rem 1rem; border-radius: 8px; font-size: .85rem; cursor: pointer;
+    background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06);
+    color: #8e89a8; transition: all .2s; font-family: inherit;
+  }
+  .code-tab.active { background: rgba(99,102,241,.1); border-color: rgba(99,102,241,.3); color: #818cf8; }
+
+  /* ─── Footer ──────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid rgba(255,255,255,.06);
+    padding: 2.5rem 0; text-align: center;
+  }
+  .footer-links { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: 1rem; flex-wrap: wrap; }
+  .footer-links a { font-size: .88rem; color: #8e89a8; transition: color .2s; }
+  .footer-links a:hover { color: #818cf8; }
+  .footer-copy { font-size: .83rem; color: #6b6786; }
+  .footer-copy .heart { color: #f87171; }
+
+  /* ─── Reveal on Scroll ────────────────────────────────── */
+  .reveal { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    .signature-path, .signature-path-2 { stroke-dashoffset: 0 !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── Navbar ────────────────────────────────────────────── -->
+<nav>
+  <div class="container">
+    <a href="#" class="nav-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="url(#navLogoGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <defs><linearGradient id="navLogoGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#818cf8"/><stop offset="100%" stop-color="#a78bfa"/></linearGradient></defs>
+        <path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/>
+      </svg>
+      Signaturizer
+    </a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#privacy">Privacy</a></li>
+      <li><a href="#install">Install</a></li>
+    </ul>
+    <a href="https://github.com/pixeleldev/signaturizer" target="_blank" rel="noopener" class="nav-gh">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      Star
+    </a>
+    <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- ─── Hero ──────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-content">
+    <!-- App icon -->
+    <div class="hero-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+        <path d="M2 2l7.586 7.586"/>
+        <circle cx="11" cy="11" r="2"/>
+      </svg>
+    </div>
+
+    <h1>Signaturizer</h1>
+
+    <!-- Animated signature -->
+    <div class="signature-wrap">
+      <svg class="signature-svg" viewBox="0 0 300 80" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="sigGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#818cf8"/>
+            <stop offset="50%" stop-color="#a78bfa"/>
+            <stop offset="100%" stop-color="#c4b5fd"/>
+          </linearGradient>
+        </defs>
+        <!-- Main flourish -->
+        <path class="signature-path" d="M10,50 C25,20 35,20 45,45 C50,60 55,60 62,40 Q70,15 80,40 C88,60 95,55 105,35 Q115,15 128,40 L135,52 Q145,65 155,40 C165,15 178,25 188,48 Q195,60 205,40 L215,25"/>
+        <!-- Underline flourish -->
+        <path class="signature-path-2" d="M15,62 Q150,75 225,58" stroke-width="2"/>
+      </svg>
+    </div>
+
+    <p class="hero-tagline">
+      <strong>Capture. Place. Sign.</strong> — Open-source desktop PDF signatures.
+    </p>
+
+    <div class="hero-btns">
+      <a href="https://github.com/pixeleldev/signaturizer" target="_blank" rel="noopener" class="btn btn-secondary">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        View on GitHub
+      </a>
+      <a href="https://github.com/pixeleldev/signaturizer/releases/latest" target="_blank" rel="noopener" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Features ──────────────────────────────────────────── -->
+<section class="section" id="features">
+  <div class="container">
+    <h2 class="section-title reveal">Everything you need to sign PDFs</h2>
+    <p class="section-subtitle reveal">Built for speed, privacy, and automation.</p>
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></div>
+        <h3>Webcam Signature Capture</h3>
+        <p>Hold up your signature on paper — the webcam captures it in real time. No scanners, no image files.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+        <h3>Adaptive Paper Cleanup</h3>
+        <p>Intelligent thresholding removes shadows and paper texture, leaving a crisp, clean signature.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <h3>Visual Placement & Resize</h3>
+        <p>Click anywhere on your PDF to drop the signature. Drag, scale, and rotate with live preview.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg></div>
+        <h3>Color Tinting</h3>
+        <p>Switch between classic black, standard blue ballpoint, or pick a custom hue — all applied non-destructively.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <h3>100% Local & Private</h3>
+        <p>No uploads. No cloud. No telemetry. Your documents never leave your machine.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+        <h3>HTTP API for Automation</h3>
+        <p>Built-in REST endpoint lets you sign PDFs programmatically — perfect for batch jobs and pipelines.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+        <h3>PDF Text Extraction</h3>
+        <p>Read form fields and labels directly from the PDF, so you know exactly where to sign.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+        <h3>OCR with Tesseract</h3>
+        <p>Scanned documents? Built-in Tesseract OCR extracts text from image-based PDFs automatically.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── How It Works ──────────────────────────────────────── -->
+<section class="section" id="how" style="background: rgba(255,255,255,.01);">
+  <div class="container">
+    <h2 class="section-title reveal" style="text-align:center;">How it works</h2>
+    <p class="section-subtitle reveal" style="text-align:center;">From unsigned to signed in under 30 seconds.</p>
+    <div class="steps-grid">
+      <div class="step-card reveal">
+        <div class="step-number">1</div>
+        <h3>Open a PDF</h3>
+        <p>Drag in any PDF document. It renders instantly with pdf.js — no loading spinners.</p>
+      </div>
+      <div class="step-card reveal">
+        <div class="step-number">2</div>
+        <h3>Capture your signature</h3>
+        <p>Hold your signed paper up to the webcam. The adaptive cleaner strips background noise.</p>
+      </div>
+      <div class="step-card reveal">
+        <div class="step-number">3</div>
+        <h3>Click to place</h3>
+        <p>Click anywhere on the document. Resize, rotate, and tint until it looks just right.</p>
+      </div>
+      <div class="step-card reveal">
+        <div class="step-number">4</div>
+        <h3>Save your signed copy</h3>
+        <p>Export a flattened, signed PDF with pdf-lib. Ready to email, print, or archive.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Privacy Callout ───────────────────────────────────── -->
+<section class="section" id="privacy">
+  <div class="container">
+    <div class="privacy-callout reveal">
+      <div class="privacy-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+      </div>
+      <h2>Your documents never leave your computer</h2>
+      <p>Signaturizer processes everything locally. No file uploads, no cloud APIs, no analytics, no accounts. What happens on your machine stays on your machine — exactly how signing a legal document should be.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Tech Stack ────────────────────────────────────────── -->
+<section class="section tech-section">
+  <div class="container">
+    <h2 class="section-title reveal">Built with a modern stack</h2>
+    <p class="section-subtitle reveal" style="text-align:center;">Familiar tools, excellent developer experience.</p>
+    <div class="tech-badges reveal">
+      <span class="tech-badge"><span class="dot" style="background:#47848F;"></span> Electron</span>
+      <span class="tech-badge"><span class="dot" style="background:#FF3E00;"></span> Svelte 5</span>
+      <span class="tech-badge"><span class="dot" style="background:#38BDF8;"></span> Tailwind CSS</span>
+      <span class="tech-badge"><span class="dot" style="background:#F40D12;"></span> pdf.js</span>
+      <span class="tech-badge"><span class="dot" style="background:#E94B8A;"></span> pdf-lib</span>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Quick Install ─────────────────────────────────────── -->
+<section class="section install-section" id="install">
+  <div class="container">
+    <h2 class="section-title reveal">Quick install</h2>
+    <p class="section-subtitle reveal" style="text-align:center;">Clone, install, run — three commands.</p>
+    <div class="reveal">
+      <div class="code-tabs">
+        <button class="code-tab active" data-tab="npm" onclick="switchTab('npm')">npm</button>
+        <button class="code-tab" data-tab="pnpm" onclick="switchTab('pnpm')">pnpm</button>
+        <button class="code-tab" data-tab="bun" onclick="switchTab('bun')">bun</button>
+      </div>
+      <div class="code-block" id="codeBlock">
+<span class="comment"># Clone the repository</span>
+<span class="cmd">git</span> clone https://github.com/pixeleldev/signaturizer.git
+<span class="cmd">cd</span> signaturizer
+
+<span class="comment"># Install dependencies</span>
+<span class="cmd">npm</span> install
+
+<span class="comment"># Launch in dev mode</span>
+<span class="cmd">npm</span> run <span class="flag">dev</span>
+      </div>
+    </div>
+    <p style="margin-top:1.5rem; color:#6b6786; font-size:.85rem;">
+      Or grab a pre-built binary from the
+      <a href="https://github.com/pixeleldev/signaturizer/releases/latest" target="_blank" rel="noopener" style="color:#818cf8; text-decoration:underline; text-underline-offset:2px;">latest release →</a>
+    </p>
+  </div>
+</section>
+
+<!-- ─── Footer ────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-links">
+      <a href="https://github.com/pixeleldev/signaturizer" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/pixeleldev/signaturizer/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://github.com/pixeleldev/signaturizer/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+      <a href="https://github.com/pixeleldev/signaturizer/issues" target="_blank" rel="noopener">Issues</a>
+    </div>
+    <p class="footer-copy">
+      Released under the MIT License · Built with <span class="heart">♥</span> and open-source software
+    </p>
+  </div>
+</footer>
+
+<script>
+  // ─── Mobile menu toggle ───
+  const menuToggle = document.getElementById('menuToggle');
+  const navLinks = document.getElementById('navLinks');
+  menuToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
+
+  // ─── Smooth scroll nav links ───
+  navLinks.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', () => navLinks.classList.remove('open'));
+  });
+
+  // ─── Reveal on scroll ───
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        setTimeout(() => entry.target.classList.add('visible'), i * 60);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // ─── Code tab switcher ───
+  const tabContent = {
+    npm: `<span class="comment"># Clone the repository</span>\n<span class="cmd">git</span> clone https://github.com/pixeleldev/signaturizer.git\n<span class="cmd">cd</span> signaturizer\n\n<span class="comment"># Install dependencies</span>\n<span class="cmd">npm</span> install\n\n<span class="comment"># Launch in dev mode</span>\n<span class="cmd">npm</span> run <span class="flag">dev</span>`,
+    pnpm: `<span class="comment"># Clone the repository</span>\n<span class="cmd">git</span> clone https://github.com/pixeleldev/signaturizer.git\n<span class="cmd">cd</span> signaturizer\n\n<span class="comment"># Install dependencies</span>\n<span class="cmd">pnpm</span> install\n\n<span class="comment"># Launch in dev mode</span>\n<span class="cmd">pnpm</span> run <span class="flag">dev</span>`,
+    bun: `<span class="comment"># Clone the repository</span>\n<span class="cmd">git</span> clone https://github.com/pixeleldev/signaturizer.git\n<span class="cmd">cd</span> signaturizer\n\n<span class="comment"># Install dependencies</span>\n<span class="cmd">bun</span> install\n\n<span class="comment"># Launch in dev mode</span>\n<span class="cmd">bun</span> run <span class="flag">dev</span>`
+  };
+
+  function switchTab(tab) {
+    document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.code-tab[data-tab="${tab}"]`).classList.add('active');
+    document.getElementById('codeBlock').innerHTML = tabContent[tab];
+  }
+</script>
+
+</body>
+</html>

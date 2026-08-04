@@ -39,3 +39,14 @@ if (typeof globalThis.ImageData === 'undefined') {
     }
   };
 }
+
+if (typeof Element !== 'undefined' && !Element.prototype.animate) {
+  Element.prototype.animate = function () {
+    return {
+      addEventListener: () => {},
+      cancel: () => {},
+      finished: Promise.resolve(),
+      play: () => {},
+    };
+  };
+}

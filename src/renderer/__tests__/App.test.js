@@ -52,12 +52,12 @@ describe('App - Rendering', () => {
     expect(getByText('Sign')).toBeDefined();
   });
 
-  it('disables Sign and Export buttons when no PDF loaded', () => {
+  it('disables Sign and Save As buttons when no PDF loaded', () => {
     const { getByText } = render(App);
     const signBtn = getByText('Sign').closest('button');
-    const exportBtn = getByText('Export').closest('button');
+    const saveAsBtn = getByText('Save As').closest('button');
     expect(signBtn.disabled).toBe(true);
-    expect(exportBtn.disabled).toBe(true);
+    expect(saveAsBtn.disabled).toBe(true);
   });
 
   it('sign dropdown is not visible initially', () => {
@@ -313,7 +313,7 @@ describe('App - Keyboard shortcuts', () => {
     expect(window.electronAPI.openPdfFromDialog).toHaveBeenCalledTimes(1);
   });
 
-  it('Ctrl+S calls handleExport (saveSignedPdf)', async () => {
+  it('Ctrl+S calls Save As handler safely', async () => {
     render(App);
 
     await fireEvent.keyDown(document, { key: 's', ctrlKey: true });
@@ -328,7 +328,7 @@ describe('App - Keyboard shortcuts', () => {
     // Simulate a loaded PDF by setting up the full flow
     window.electronAPI.openPdfFromDialog = vi.fn().mockResolvedValue({
       fileName: 'doc.pdf',
-      data: new ArrayBuffer(10),
+      base64: btoa('0123456789'),
     });
 
     render(App);

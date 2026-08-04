@@ -59,7 +59,10 @@ describe('pdf-viewer', () => {
 
       const result = await loadPdf(buffer);
 
-      expect(mockGetDocument).toHaveBeenCalledWith({ data: buffer });
+      expect(mockGetDocument).toHaveBeenCalledWith({
+        data: expect.any(ArrayBuffer),
+        disableWorker: true,
+      });
       expect(result).toBe(mockDoc);
     });
 

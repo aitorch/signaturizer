@@ -5,7 +5,7 @@ import Toolbar from '../components/Toolbar.svelte';
 describe('Toolbar', () => {
   const defaultProps = {
     onOpenPdf: vi.fn(),
-    onExport: vi.fn(),
+    onSaveAs: vi.fn(),
     onSign: vi.fn(),
     hasPdf: false,
     hasSignatures: false,
@@ -28,9 +28,9 @@ describe('Toolbar', () => {
     expect(getByText('Open PDF')).toBeDefined();
   });
 
-  it('renders Export button', () => {
+  it('renders Save As button', () => {
     const { getByText } = render(Toolbar, { props: defaultProps });
-    expect(getByText('Export')).toBeDefined();
+    expect(getByText('Save As')).toBeDefined();
   });
 
   it('renders Sign button', () => {
@@ -47,13 +47,13 @@ describe('Toolbar', () => {
     expect(onOpenPdf).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onExport when Export is clicked', async () => {
-    const onExport = vi.fn();
+  it('calls onSaveAs when Save As is clicked', async () => {
+    const onSaveAs = vi.fn();
     const { getByText } = render(Toolbar, {
-      props: { ...defaultProps, onExport, hasPdf: true },
+      props: { ...defaultProps, onSaveAs, hasPdf: true },
     });
-    await fireEvent.click(getByText('Export'));
-    expect(onExport).toHaveBeenCalledTimes(1);
+    await fireEvent.click(getByText('Save As'));
+    expect(onSaveAs).toHaveBeenCalledTimes(1);
   });
 
   it('calls onSign when Sign is clicked', async () => {
@@ -65,12 +65,12 @@ describe('Toolbar', () => {
     expect(onSign).toHaveBeenCalledTimes(1);
   });
 
-  it('disables Export button when hasPdf is false', () => {
+  it('disables Save As button when hasPdf is false', () => {
     const { getByText } = render(Toolbar, {
       props: { ...defaultProps, hasPdf: false },
     });
-    const exportBtn = getByText('Export').closest('button');
-    expect(exportBtn.disabled).toBe(true);
+    const saveAsBtn = getByText('Save As').closest('button');
+    expect(saveAsBtn.disabled).toBe(true);
   });
 
   it('disables Sign button when hasPdf is false', () => {
@@ -81,12 +81,12 @@ describe('Toolbar', () => {
     expect(signBtn.disabled).toBe(true);
   });
 
-  it('enables Export button when hasPdf is true', () => {
+  it('enables Save As button when hasPdf is true', () => {
     const { getByText } = render(Toolbar, {
       props: { ...defaultProps, hasPdf: true },
     });
-    const exportBtn = getByText('Export').closest('button');
-    expect(exportBtn.disabled).toBe(false);
+    const saveAsBtn = getByText('Save As').closest('button');
+    expect(saveAsBtn.disabled).toBe(false);
   });
 
   it('enables Sign button when hasPdf is true', () => {
@@ -175,9 +175,9 @@ describe('Toolbar', () => {
     const { getByText } = render(Toolbar, {
       props: { ...defaultProps, hasPdf: false },
     });
-    const exportBtn = getByText('Export').closest('button');
-    expect(exportBtn.classList.contains('disabled:opacity-50')).toBe(true);
-    expect(exportBtn.classList.contains('disabled:cursor-not-allowed')).toBe(true);
+    const saveAsBtn = getByText('Save As').closest('button');
+    expect(saveAsBtn.classList.contains('disabled:opacity-50')).toBe(true);
+    expect(saveAsBtn.classList.contains('disabled:cursor-not-allowed')).toBe(true);
   });
 
   it('applies focus-visible ring classes to all buttons', () => {

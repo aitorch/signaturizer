@@ -1,8 +1,8 @@
 <script>
   import { onMount } from 'svelte';
   import { fade, fly, scale } from 'svelte/transition';
-  import { createSignatureStore, createMemoryAdapter } from '../lib/signature-store.js';
-  import { cropImage, removeBackground, imageDataToBase64 } from '../lib/image-processor.js';
+  import { v4 as uuidv4 } from 'uuid';
+  import { cropImage, removePaperBackground, trimTransparentPixels, imageDataToBase64 } from '../lib/image-processor.js';
   import SignatureDropdown from './components/SignatureDropdown.svelte';
   import CameraModal from './components/CameraModal.svelte';
   import Toolbar from './components/Toolbar.svelte';
@@ -17,7 +17,6 @@
   let selectedSignature = $state(null);
   let showSignDropdown = $state(false);
   let showCameraModal = $state(false);
-  let store = $state(null);
   let currentPage = $state(1);
   let totalPages = $state(1);
   let zoom = $state(100);
@@ -48,93 +47,66 @@
   onMount(async () => {
     if (!api) return;
     try {
-      const ipcAdapter = {
-        read: () => api.readSignatures(),
-        write: (data) => api.writeSignatures(data),
-      };
-      store = createSignatureStore(ipcAdapter);
-      signatures = store.getAll();
+      signatures = await loadPersistedSignatures();
+      console.log('[App] Loaded signatures:', signatures.length);
     } catch (err) {
       console.error('Failed to load signatures:', err);
     }
   });
 
   // Handlers
-  async function handleOpenPdf() {
-    try {
-      if (!api) return;
-      const result = await api.openPdfFromDialog();
-      if (!result) return;
-      if (result.error) {
-        console.error('Failed to read file:', result.error);
-        showError('Failed to open PDF');
-        return;
-      }
-      pdfData = result.data;
-      pdfFileName = result.fileName;
-    } catch (err) {
-      console.error('Failed to open PDF:', err);
-      showError('Failed to open PDF');
+  async function loadPersistedSignatures() {
+    if (!api?.readSignatures) return [];
+    const loaded = await api.readSignatures();
+    return Array.isArray(loaded) ? loaded : [];
+  }
+
+  async function persistSignatures(nextSignatures) {
+    if (!api?.writeSignatures) return;
+    // Svelte $state arrays/objects may be proxies, which Electron IPC cannot
+    // structured-clone. Send plain JSON data across the bridge.
+    const plainSignatures = JSON.parse(JSON.stringify(nextSignatures));
+    const result = await api.writeSignatures(plainSignatures);
+    if (result && result.error) {
+      throw new Error(result.error);
     }
   }
 
-  async function handleExport() {
+  function base64ToUint8Array_full(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  async function handleOpenPdf() {
+    try {
+      if (!api) return;
+      console.log('[App] Opening PDF dialog...');
+      const result = await api.openPdfFromDialog();
+      if (!result) { console.log('[App] Dialog canceled'); return; }
+      if (result.error) {
+        console.error('[App] Read error:', result.error);
+        showError('Failed to open PDF: ' + result.error);
+        return;
+      }
+      console.log('[App] Got file:', result.fileName, 'base64 length:', result.base64?.length);
+      // Decode base64 to Uint8Array — this is always a fresh buffer, never detached
+      pdfData = base64ToUint8Array_full(result.base64);
+      pdfFileName = result.fileName;
+      console.log('[App] Decoded', pdfData.byteLength, 'bytes');
+    } catch (err) {
+      console.error('[App] Open PDF error:', err);
+      showError('Failed to open PDF: ' + err.message);
+    }
+  }
+
+  async function handleSaveAs() {
     try {
       if (!api || !pdfData) return;
+      const pdfBase64 = await createSignedPdfBase64();
 
-      // Get placed signatures from placement component
-      if (!placementRef || !canvasRef) return;
-
-      const canvasWidth = canvasRef.width;
-      const canvasHeight = canvasRef.height;
-
-      // Use getAllPlacedForExport to get signatures across ALL pages
-      const placedForExport = placementRef.getAllPlacedForExport(
-        canvasWidth,
-        canvasHeight,
-        pageDimensions
-      );
-
-      // Check for signatures that were silently skipped due to missing page dimensions
-      const allPlaced = placementRef.getAllPlaced();
-      if (placedForExport.length < allPlaced.length) {
-        const skippedPages = allPlaced
-          .filter(s => !pageDimensions[s.page])
-          .map(s => s.page)
-          .filter((v, i, a) => a.indexOf(v) === i);
-        const msg = `Could not export ${allPlaced.length - placedForExport.length} signature(s) on page(s) ${skippedPages.join(', ')} — missing page dimensions. Navigate to those pages first.`;
-        console.error(msg);
-        showError(msg);
-        return;
-      }
-
-      if (placedForExport.length === 0) {
-        console.warn('No signatures placed');
-        showError('No signatures to export');
-        return;
-      }
-
-      // Convert image data: each signature's imageData is a base64 data URL
-      // pdf-exporter expects Uint8Array of PNG bytes
-      const signaturesForExport = placedForExport.map(sig => ({
-        page: sig.page,
-        x: sig.pdfX,
-        y: sig.pdfY,
-        width: sig.pdfWidth,
-        height: sig.pdfHeight,
-        imageData: base64ToUint8Array(sig.imageData),
-      }));
-
-      // Export
-      const originalBytes = new Uint8Array(pdfData);
-      const exportResult = await exportSignedPdf(originalBytes, signaturesForExport);
-
-      // Save via dedicated IPC handler — slice the buffer to get only the relevant bytes
-      const pdfBytes = exportResult.buffer.slice(
-        exportResult.byteOffset,
-        exportResult.byteOffset + exportResult.byteLength
-      );
-      const saveResult = await api.saveSignedPdf(pdfBytes, pdfFileName || 'signed.pdf');
+      const saveResult = await api.saveSignedPdf(pdfBase64, pdfFileName || 'signed.pdf');
       if (saveResult && saveResult.error) {
         console.error('Failed to save file:', saveResult.error);
         showError('Failed to save PDF');
@@ -142,11 +114,64 @@
       }
       if (saveResult === null) return; // User canceled
 
-      showSuccess('PDF exported successfully');
+      showSuccess('PDF saved successfully');
     } catch (err) {
-      console.error('Failed to export:', err);
-      showError('Failed to export PDF');
+      const expectedMessages = new Set(['PDF is not ready yet', 'No signatures to save']);
+      if (!expectedMessages.has(err.message)) {
+        console.error('Failed to save PDF:', err);
+      }
+      showError(expectedMessages.has(err.message) ? err.message : 'Failed to save PDF');
     }
+  }
+
+  async function createSignedPdfBase64() {
+    if (!pdfData) {
+      throw new Error('No PDF loaded');
+    }
+    if (!placementRef || !canvasRef) {
+      throw new Error('PDF is not ready yet');
+    }
+
+    const canvasWidth = canvasRef.width;
+    const canvasHeight = canvasRef.height;
+
+    // Use getAllPlacedForExport to get signatures across ALL pages
+    const placedForExport = placementRef.getAllPlacedForExport(
+      canvasWidth,
+      canvasHeight,
+      pageDimensions
+    );
+
+    // Check for signatures that were silently skipped due to missing page dimensions
+    const allPlaced = placementRef.getAllPlaced();
+    if (placedForExport.length < allPlaced.length) {
+      const skippedPages = allPlaced
+        .filter(s => !pageDimensions[s.page])
+        .map(s => s.page)
+        .filter((v, i, a) => a.indexOf(v) === i);
+      throw new Error(`Could not save ${allPlaced.length - placedForExport.length} signature(s) on page(s) ${skippedPages.join(', ')} — missing page dimensions. Navigate to those pages first.`);
+    }
+
+    if (placedForExport.length === 0) {
+      throw new Error('No signatures to save');
+    }
+
+    // Convert image data: each signature's imageData is a base64 data URL
+    // pdf-exporter expects Uint8Array of PNG bytes
+    const signaturesForExport = placedForExport.map(sig => ({
+      page: sig.page,
+      x: sig.pdfX,
+      y: sig.pdfY,
+      width: sig.pdfWidth,
+      height: sig.pdfHeight,
+      imageData: base64ToUint8Array(sig.imageData),
+    }));
+
+    const originalBytes = pdfData instanceof Uint8Array ? pdfData : new Uint8Array(pdfData);
+    const exportResult = await exportSignedPdf(originalBytes, signaturesForExport);
+
+    // Encode to base64 for IPC/API (avoids detached ArrayBuffer).
+    return Buffer_from_Uint8Array(exportResult);
   }
 
   function base64ToUint8Array(dataUrl) {
@@ -205,36 +230,67 @@
     showSignDropdown = false;
   }
 
-  function handleDeleteSignature(id) {
-    if (store) {
-      store.delete(id);
-      signatures = store.getAll();
+  async function handleDeleteSignature(id) {
+    try {
+      const next = signatures.filter((s) => s.id !== id);
+      await persistSignatures(next);
+      signatures = next;
+      if (selectedSignature?.id === id) {
+        selectedSignature = null;
+      }
+      console.log('[App] Deleted signature:', id);
+    } catch (err) {
+      console.error('Failed to delete signature:', err);
+      showError('Failed to delete signature');
     }
   }
 
   // --- Camera capture → process → save ---
 
-  async function handleCameraCapture({ capturedCanvas, cropRect, threshold }) {
+  async function handleCameraCapture({ capturedCanvas, cropRect, sensitivity }) {
     try {
       // Crop the captured image
       const croppedCanvas = cropImage(capturedCanvas, cropRect);
       const ctx = croppedCanvas.getContext('2d');
       const imageData = ctx.getImageData(0, 0, croppedCanvas.width, croppedCanvas.height);
 
-      // Remove background
-      const processedImageData = removeBackground(imageData, threshold);
+      // Remove uneven paper lighting/shadows and trim empty transparent margins.
+      const processedImageData = removePaperBackground(imageData, { sensitivity });
+      const trimmedImageData = trimTransparentPixels(processedImageData, 8);
 
       // Convert to base64 PNG
-      const base64Png = imageDataToBase64(processedImageData);
+      const base64Png = imageDataToBase64(trimmedImageData);
 
-      // Save to store
-      if (store) {
-        const name = 'Signature ' + (signatures.length + 1);
-        store.add(name, base64Png);
-        signatures = store.getAll();
+      const defaultName = 'Signature ' + (signatures.length + 1);
+      let chosenName = defaultName;
+      try {
+        const promptedName = typeof window.prompt === 'function'
+          ? window.prompt('Signature name', defaultName)
+          : null;
+        if (promptedName && promptedName.trim()) {
+          chosenName = promptedName.trim();
+        }
+      } catch {
+        chosenName = defaultName;
       }
 
+      const now = new Date().toISOString();
+      const entry = {
+        id: uuidv4(),
+        name: chosenName,
+        imageData: base64Png,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const next = [...signatures, entry];
+      await persistSignatures(next);
+      signatures = next;
+      selectedSignature = entry;
+      console.log('[App] Saved signature:', entry.id, trimmedImageData.width, trimmedImageData.height);
+
       showCameraModal = false;
+      showSuccess('Signature saved');
     } catch (err) {
       console.error('Failed to process signature:', err);
       showError('Failed to process signature');
@@ -248,7 +304,26 @@
     }
   }
 
+  function Buffer_from_Uint8Array(arr) {
+    let binary = '';
+    const bytes = arr instanceof Uint8Array ? arr : new Uint8Array(arr.buffer || arr);
+    const len = bytes.byteLength !== undefined ? bytes.byteLength : bytes.length;
+    for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+
   onMount(() => {
+    // Listen for API-triggered PDF opens
+    if (api?.onApiOpenPdf) {
+      api.onApiOpenPdf(({ fileName, base64 }) => {
+        console.log('[App] API open:', fileName, base64.length, 'chars');
+        pdfData = base64ToUint8Array_full(base64);
+        pdfFileName = fileName;
+      });
+    }
+
+    window.__signaturizerExport = createSignedPdfBase64;
+
     function handleKeyDown(e) {
       // Don't intercept when typing in inputs
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
@@ -261,7 +336,7 @@
         handleOpenPdf();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        handleExport();
+        handleSaveAs();
       } else if (e.key === 'Escape') {
         if (showCameraModal) {
           showCameraModal = false;
@@ -271,7 +346,10 @@
       }
     }
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      delete window.__signaturizerExport;
+    };
   });
 </script>
 
@@ -280,7 +358,7 @@
   <div class="relative">
     <Toolbar
       onOpenPdf={handleOpenPdf}
-      onExport={handleExport}
+      onSaveAs={handleSaveAs}
       onSign={handleSign}
       hasPdf={pdfData !== null}
       hasSignatures={signatures.length > 0}
@@ -319,14 +397,14 @@
           onPageInfo={handlePageInfo}
           getCanvasRef={(ref) => canvasRef = ref}
         />
-        {#if selectedSignature}
-          <SignaturePlacement
-            {selectedSignature}
-            currentPage={currentPage}
-            {canvasRef}
-            bind:this={placementRef}
-          />
-        {/if}
+        <SignaturePlacement
+          {selectedSignature}
+          currentPage={currentPage}
+          {canvasRef}
+          onSignaturesChanged={(placed) => console.log('[App] Placed signatures:', placed.length)}
+          onSignaturePlaced={() => { selectedSignature = null; }}
+          bind:this={placementRef}
+        />
       </div>
     {:else}
       <!-- Empty state -->

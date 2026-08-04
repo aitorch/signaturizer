@@ -1,7 +1,7 @@
 <script>
   let {
     onOpenPdf,
-    onExport,
+    onSaveAs,
     onSign,
     hasPdf = false,
     // TODO: hasSignatures will be used to toggle export availability when signature validation is implemented
@@ -31,17 +31,17 @@
       Open PDF
     </button>
 
-    <!-- Export -->
+    <!-- Save As -->
     <button
-      onclick={onExport}
+      onclick={onSaveAs}
       disabled={!hasPdf}
       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
-      title="Export PDF"
+      title="Save signed PDF as..."
     >
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
       </svg>
-      Export
+      Save As
     </button>
   </div>
 

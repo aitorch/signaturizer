@@ -7,6 +7,7 @@
     currentPage = 1,
     canvasRef = null,
     onSignaturesChanged = null,
+    onSignaturePlaced = null,
   } = $props();
 
   let placedSignatures = $state([]);
@@ -162,6 +163,9 @@
     placedSignatures = [...placedSignatures, newSig];
     selectedPlacedId = id;
     notifyChanged();
+    if (typeof onSignaturePlaced === 'function') {
+      onSignaturePlaced(newSig);
+    }
   }
 
   // ---- Select / Deselect ----
@@ -469,6 +473,7 @@
       class="absolute {sig.id === selectedPlacedId ? 'ring-2 ring-indigo-500' : ''}"
       style="left: {sig.x}px; top: {sig.y}px; width: {sig.width}px; height: {sig.height}px; pointer-events: auto; cursor: move;"
       onclick={(e) => selectPlaced(e, sig.id)}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectPlaced(e, sig.id); } }}
       onmousedown={(e) => startDrag(e, sig)}
       role="button"
       tabindex="0"

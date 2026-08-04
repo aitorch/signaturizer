@@ -148,6 +148,25 @@ describe('SignaturePlacement', () => {
       expect(placed).toHaveLength(2);
       expect(placed[0].id).not.toBe(placed[1].id);
     });
+
+    it('notifies parent after placing so the active signing tool can be cleared', async () => {
+      const onSignaturePlaced = vi.fn();
+      const { container } = render(SignaturePlacement, {
+        props: {
+          ...defaultProps,
+          selectedSignature: createMockSignature(),
+          onSignaturePlaced,
+        },
+      });
+
+      mockOverlay(container.firstElementChild);
+
+      const clickArea = container.querySelector('.cursor-crosshair');
+      await fireEvent.click(clickArea, { clientX: 300, clientY: 200 });
+
+      expect(onSignaturePlaced).toHaveBeenCalledTimes(1);
+      expect(onSignaturePlaced.mock.calls[0][0].signatureId).toBe('sig-1');
+    });
   });
 
   describe('selecting signatures', () => {
