@@ -1,6 +1,6 @@
 {
   "name": "signaturizer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Desktop PDF app for capturing handwritten signatures and stamping them onto documents",
   "main": ".vite/build/main.js",
   "type": "module",
