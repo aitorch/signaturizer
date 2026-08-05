@@ -6,7 +6,28 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            artifact_pattern: |
+              out/**/*.deb
+              out/**/*.zip
+              out/**/*.AppImage
+          - os: macos-latest
+            platform: darwin
+            artifact_pattern: |
+              out/**/*.zip
+              out/**/*.dmg
+          - os: windows-latest
+            platform: win32
+            artifact_pattern: |
+              out/**/*.zip
+              out/**/*.exe
+
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -17,7 +38,7 @@ jobs:
 
       - run: npm ci
 
-      - name: Build packages
+      - name: Build packages (${{ matrix.platform }})
         run: npm run build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -25,7 +46,4 @@ jobs:
       - name: Upload artifacts to release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            out/**/*.deb
-            out/**/*.zip
-            out/**/*.AppImage
+          files: ${{ matrix.artifact_pattern }}

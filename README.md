@@ -7,8 +7,8 @@
 [![Svelte 5](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)](https://svelte.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38BDF8?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 ![Linux](https://img.shields.io/badge/Platform-Linux-FCC624?logo=linux&logoColor=black)
-![macOS](https://img.shields.io/badge/Platform-macOS-000000?logo=apple&logoColor=white)
-![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white)
+![macOS](https://img.shields.io/badge/Platform-macOS_(experimental)-000000?logo=apple&logoColor=white)
+![Windows](https://img.shields.io/badge/Platform-Windows_(experimental)-0078D6?logo=windows&logoColor=white)
 
 ---
 
@@ -193,6 +193,26 @@ npm run build:zip
 Produces an unpacked, portable directory you can zip and run anywhere without installation.
 
 > **macOS / Windows:** Cross-compilation from Linux is generally not supported for native modules. Build on the target platform for best results.
+
+### ⚠️ macOS & Windows — Experimental Builds
+
+macOS and Windows builds are **experimental**. They are built via CI on the target platforms but are **not code-signed**.
+
+**macOS:**
+- Gatekeeper will show "Signaturizer cannot be opened because it is from an unidentified developer."
+- **Workaround:** Right-click the app → *Open* → confirm. Or run `xattr -cr /path/to/Signaturizer.app` in Terminal.
+- The `.icns` icon is generated automatically during CI builds.
+
+**Windows:**
+- SmartScreen will show "Windows protected your PC."
+- **Workaround:** Click *More info* → *Run anyway*.
+- The `.ico` icon is included in the repository.
+
+**OCR (both platforms):** Tesseract and Poppler are **not bundled**. To enable OCR:
+- macOS: `brew install tesseract poppler`
+- Windows: Download [Tesseract](https://github.com/UB-Mannheim/tesseract/wiki) and [Poppler for Windows](https://github.com/oschwartz10612/poppler-windows/releases), then add both to your `PATH`.
+
+If you encounter issues, please [open an issue](../../issues) or submit a PR.
 
 ---
 

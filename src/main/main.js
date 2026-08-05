@@ -14,9 +14,14 @@ const __dirname = path.dirname(__filename);
 
 const isDev = !app.isPackaged;
 
-app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations');
-app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
-app.commandLine.appendSwitch('disable-gpu-sandbox');
+// Linux-only: Wayland / ozone hints improve window management under Wayland compositors.
+// On macOS and Windows these switches are ignored by Electron but `disable-gpu-sandbox`
+// can cause GPU rendering issues on some Windows drivers, so we scope everything to Linux.
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations');
+  app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+  app.commandLine.appendSwitch('disable-gpu-sandbox');
+}
 
 // ── Logging helper ────────────────────────────────────────────────────────────
 
