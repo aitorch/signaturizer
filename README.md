@@ -14,7 +14,17 @@
 
 <!-- SCREENSHOTS -->
 
-> _Add screenshots here: main window with PDF open, camera capture modal, signed PDF preview._
+![Empty State](screenshots/01-empty-state.png)
+
+*Signaturizer on launch — clean, dark, minimal.*
+
+![PDF with Signature](screenshots/02-pdf-signed.png)
+
+*PDF loaded with a handwritten signature placed and ready to export.*
+
+![Signature Library](screenshots/03-signature-dropdown.png)
+
+*Signature library dropdown — multiple signatures, rename, delete, or capture new.*
 
 ---
 
