@@ -22,7 +22,7 @@
   "dependencies": {
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.4.168",
-    "uuid": "^14.0.1"
+    "uuid": "^14.0.2"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.6.0",
